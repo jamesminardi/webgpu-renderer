@@ -2,15 +2,12 @@
 
 > [!WARNING]
 > Work in Progress
+> Building to web currently unsupported.
 
-TODO:
-- Hello Triangle
-- Build from command-line
-- Build to Web
 
 ## About
 
-This is a personal WebGPU C++ template to allow cross-platform compatibility based entirely off of the [WebGPU C++ Guide](https://eliemichel.github.io/LearnWebGPU).
+This is a personal WebGPU C++ template to allow cross-platform compatibility based off of the [WebGPU C++ Guide](https://eliemichel.github.io/LearnWebGPU).
 
 ### Dependencies
 - [`GLFW`](https://github.com/glfw/glfw): Window creation
@@ -22,24 +19,30 @@ This is a personal WebGPU C++ template to allow cross-platform compatibility bas
 
 _All of these are included through git submodules._
 
+---
 
 ## Setup
+
+---
 
 ### Build Requirements
 - [`cmake`](https://cmake.org): 3.20+
 - a modern C++17 compiler: (`gcc-8`, `clang-6.0`, `MSVC 2017` or above)
 - [`Emscripten`](https://github.com/emscripten-core/emscripten): (Required for building to web)
 
+> [!NOTE]  
+> On Windows I was unable to build and run using any build system except MSVC. MinGW and Cygwin could not track some specific Windows SDK headers (e.g. DirectX Compiler) among other issues. WSL is also unsupported as far as I can tell as well. YMMV
+
+---
+
 ### Build via Command-Line
-> [!WARNING]
-> Untested
 - Clone this project using git.
 - From the root of this project update all the submodules with `git submodule update --init --recursive`.
 - Follow the command-line instructions below:
 
   ```
-  cmake . -B build/release ${OPTIONS}
-  cmake --build build/release
+  cmake . -B build ${OPTIONS}
+  cmake --build build
   ```
 
 #### ${OPTIONS}
@@ -50,10 +53,9 @@ Use `-D WEBGPU_BACKEND=${BACKEND}` to use a specific WebGPU platform (e.g. `DAWN
 #### Run
 Execute either `./build/app` (linux/macOS/MinGW) or `build/Debug/app.exe` (MSVC).
 
-### Build via CMake Compatible IDE (CLion)
+---
 
-> [!NOTE]  
-> On Windows I was unable to build WebGPU-Dawn using any toolchain but Visual Studio. MinGW and Cygwin could not track some specific Windows SDK headers (e.g. DirectX Compiler). WSL is unsupported as far as I can tell as well. YMMV
+### Build via CMake Compatible IDE (CLion)
 
 - Clone this project using git.
 - From the root of this project update all the submodules with `git submodule update --init --recursive`
@@ -73,6 +75,7 @@ Next, navigate to `Build, Execution, Deployment` -> `CMake`, selecting your corr
 
 Reload your CMake project.
 
+---
 
 ## Project Structure
 - `build`: Generated build files and binary application.
@@ -81,3 +84,5 @@ Reload your CMake project.
 - `external`: External dependencies (e.g. git submodules).
 - `resources`: Project resources such as textures, sounds, music, etc.
 - `src`: Source code
+
+---

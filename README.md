@@ -23,8 +23,6 @@ _All of these are included through git submodules._
 
 ## Setup
 
----
-
 ### Build Requirements
 - [`cmake`](https://cmake.org): 3.20+
 - a modern C++17 compiler: (`gcc-8`, `clang-6.0`, `MSVC 2017` or above)

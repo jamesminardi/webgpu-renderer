@@ -1,8 +1,8 @@
-#include <glfw3webgpu.h>
-#include <GLFW/glfw3.h>
+#include "glfw3webgpu.h"
+#include "GLFW/glfw3.h"
 
 #define WEBGPU_CPP_IMPLEMENTATION
-#include <webgpu/webgpu.hpp>
+#include "webgpu/webgpu.hpp"
 
 #include <iostream>
 #include <vector>

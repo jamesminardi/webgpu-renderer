@@ -36,7 +36,7 @@ int main (int, char**) {
 
 	// Get the adapter
 	std::cout << "Requesting adapter..." << std::endl;
-	auto surface = glfwGetWGPUSurface(instance, window);
+	wgpu::Surface surface = glfwGetWGPUSurface(instance, window);
 
 	wgpu::RequestAdapterOptions adapterOpts{};
 	adapterOpts.nextInChain = nullptr;
@@ -82,18 +82,28 @@ int main (int, char**) {
 	std::cout << "Command Queue: " << queue << std::endl;
 
 	// Setup queue work done callback
+#ifdef WEBGPU_BACKEND_WGPU // Dawn does use hints right now
+	auto onQueueWorkDone = [](wgpu::QueueWorkDoneStatus status) {
+		std::cout << "Queued work finished with status: " << status << std::endl;
+	};
+	queue.onSubmittedWorkDone(onQueueWorkDone);
+#else
 	auto onQueueWorkDone = [](wgpu::QueueWorkDoneStatus status) {
 		std::cout << "Queued work finished with status: " << status << std::endl;
 	};
 	queue.onSubmittedWorkDone(0, onQueueWorkDone);
+#endif
 
 
 	// Create swapchain
 	std::cout << "Creating swapchain..." << std::endl;
+
+	// Need to gamma correct both WPGU and DAWN to match up.
+	// This is because Dawn only supports BGRA8Unorm right now
 #ifdef WEBGPU_BACKEND_WGPU
 	auto swapChainFormat = surface.getPreferredFormat(adapter);
 #else
-	auto swapChainFormat = wgpu::TextureFormat::BGRA8Unorm; // Dawn only supports this right now
+	auto swapChainFormat = wgpu::TextureFormat::BGRA8Unorm; // Dawn only supports this right now.
 #endif
 
 	wgpu::SwapChainDescriptor swapChainDesc{};

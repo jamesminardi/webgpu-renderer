@@ -4,17 +4,19 @@ project(app)
 
 include(utils.cmake)
 
-
-add_subdirectory(external/glfw)
+if (NOT EMSCRIPTEN)
+    # Do not include this with emscripten, it provides its own version.
+    add_subdirectory(external/glfw)
+endif()
 add_subdirectory(external/webgpu)
+add_subdirectory(external/glfw3webgpu)
 #add_subdirectory(glfw3webgpu)
 
 
-add_executable(app
-        main.cpp)
+add_executable(app main.cpp)
 
 
-target_link_libraries(app PRIVATE glfw webgpu
+target_link_libraries(app PRIVATE glfw webgpu glfw3webgpu
         )
 #        webgpu glfw3webgpu)
 
@@ -45,3 +47,17 @@ target_treat_all_warnings_as_errors(app)
 # so we automatically copy it (it's called WGPU_RUNTIME_LIB in general)
 # next to the binary. Not required for DAWN.
 target_copy_webgpu_binaries(app)
+
+
+if (EMSCRIPTEN)
+
+    # Generate a full web page rather than a simple WebAssembly module
+    set_target_properties(app PROPERTIES SUFFIX ".html")
+
+    # Add Emscripten-specific link options
+    target_link_options(app PRIVATE
+            -sUSE_GLFW=3 # Use Emscripten-provided GLFW
+            -sUSE_WEBGPU # Handle WebGPU symbols
+            -sASYNCIFY # Required by WebGPU-C++
+    )
+endif()

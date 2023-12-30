@@ -6,34 +6,33 @@
 TODO:
 - Hello Triangle
 - Build from command-line
-- Build using emscripten, is it a dependency or requirement?
+- Build to Web
 
 ## About
 
-This is a WebGPU C++ 
+This is a personal WebGPU C++ template to allow cross-platform compatibility based entirely off of the [WebGPU C++ Guide](https://eliemichel.github.io/LearnWebGPU).
 
 ### Dependencies
 - [`GLFW`](https://github.com/glfw/glfw): Window creation
 - [`WEBGPU`](https://github.com/eliemichel/WebGPU-distribution): WebGPU distribution
   - [`WGPU-Native`](https://github.com/gfx-rs/wgpu-native): Native interface to [`wgpu`](https://github.com/gfx-rs/wgpu) Rust library developed for Firefox
   - [`Dawn`](https://dawn.googlesource.com/dawn): Google's WebGPU implementation developed for Chrome in C++
-  - [`Emscripten`](https://github.com/emscripten-core/emscripten): Webassembly support
 - [`WebGPU-Cpp`](https://github.com/eliemichel/WebGPU-Cpp): WebGPU C++ Wrapper
+- [`GLFW3 WebGPU`](https://github.com/eliemichel/WebGPU-Cpp): Wrapper for GLFW to support cross-platform WebGPU
 
-*All of these are included through git submodules.
+_All of these are included through git submodules._
 
-For more information on the different platforms, 
 
 ## Setup
-> [!WARNING]
-> TODO: Untested
-
 
 ### Build Requirements
-- [`cmake`](https://cmake.org) 3.20+
-- a modern C++17 compiler (`gcc-8`, `clang-6.0`, `MSVC 2017` or above)
+- [`cmake`](https://cmake.org): 3.20+
+- a modern C++17 compiler: (`gcc-8`, `clang-6.0`, `MSVC 2017` or above)
+- [`Emscripten`](https://github.com/emscripten-core/emscripten): (Required for building to web)
 
 ### Build via Command-Line
+> [!WARNING]
+> Untested
 - Clone this project using git.
 - From the root of this project update all the submodules with `git submodule update --init --recursive`.
 - Follow the command-line instructions below:
@@ -77,7 +76,8 @@ Reload your CMake project.
 
 ## Project Structure
 - `build`: Generated build files and binary application.
-- `data`: Promotional Data like screenshots.
-- `external`: External dependencies like git submodules.
+- `data`: Screenshots and other data.
+- `docs`: Personal notes and documentation for learning.
+- `external`: External dependencies (e.g. git submodules).
 - `resources`: Project resources such as textures, sounds, music, etc.
 - `src`: Source code

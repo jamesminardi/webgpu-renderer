@@ -13,7 +13,7 @@ if(XCODE)
             XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal")
 endif()
 
-#target_treat_all_warnings_as_errors(app)
+target_treat_all_warnings_as_errors(app)
 
 if (EMSCRIPTEN)
     # Generate a full web page rather than a simple WebAssembly module
@@ -26,3 +26,7 @@ if (EMSCRIPTEN)
             -sASYNCIFY # Required by WebGPU-C++
     )
 endif()
+
+target_copy_webgpu_binaries(app)
+
+

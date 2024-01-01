@@ -7,9 +7,21 @@
 #include <iostream>
 #include <vector>
 
+#include "application.h"
+
 
 
 int main (int, char**) {
+
+	Application app;
+	if (!app.onInit()) return 1;
+
+	while (app.isRunning()) {
+		app.onFrame();
+	}
+
+	app.onFinish();
+	return 0;
 
 	// We create the equivalent of the navigator.gpu if this were web code (instance)
 	const wgpu::InstanceDescriptor instanceDesc{};
@@ -37,7 +49,7 @@ int main (int, char**) {
 	// Get the adapter
 	std::cout << "Requesting adapter..." << std::endl;
 	wgpu::Surface surface = glfwGetWGPUSurface(instance, window);
-
+	surface.
 	wgpu::RequestAdapterOptions adapterOpts{};
 	adapterOpts.nextInChain = nullptr;
 	adapterOpts.compatibleSurface = surface;

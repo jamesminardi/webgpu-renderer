@@ -10,9 +10,10 @@ if (NOT EMSCRIPTEN)
 endif()
 add_subdirectory(external/webgpu)
 add_subdirectory(external/glfw3webgpu)
+add_subdirectory(external/glm)
 add_subdirectory(src)
 
-target_link_libraries(app PRIVATE glfw webgpu glfw3webgpu )
+target_link_libraries(app PRIVATE glfw webgpu glfw3webgpu glm )
 
 # Disable GLFW build examples, tests, docs
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)

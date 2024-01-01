@@ -1,5 +1,6 @@
 
-add_executable(app main.cpp)
+add_executable(app main.cpp
+        window.cpp)
 
 set_target_properties(app PROPERTIES
         CXX_STANDARD 17

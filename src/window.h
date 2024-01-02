@@ -33,13 +33,14 @@ class Application;
 class Window {
 public:
 
-	static bool glfwInitialized;
-
 	Window(WindowConfig* config, Application* app = nullptr);
 
 	~Window();
 
-	wgpu::Surface getSurface(wgpu::Instance instance);
+	static bool glfwInitialized;
+	static void inputPollEvents();
+
+	wgpu::Surface getSurface(wgpu::Instance instance) const;
 
 	int shouldClose() const;
 
@@ -51,18 +52,17 @@ public:
 	glm::ivec2 getSize() const;
 	int getWidth() const;
 	int getHeight() const;
+
 	float getAspectRatio() const;
 
-	void inputSetCallbacks(Callbacks callbacks);
-	glm::vec2 inputQueryMousePos() const;
-	void inputPollEvents();
+	glm::vec2 getMousePos() const;
 
 
 	// GLFW Event Handlers
 	// -------------------
 	static void glfwErrorCallback(int error, const char* description);
 	static void glfwResizeCallback(GLFWwindow* window, int width, int height);
-	static void glfwKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods);
+	static void glfwKeyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, int mods);
 	static void glfwMousePositionCallback(GLFWwindow* window, double x, double y);
 	static void glfwMouseButtonCallback(GLFWwindow* window, int button, int action, int mods);
 	static void glfwScrollCallback(GLFWwindow* window, double x, double y);

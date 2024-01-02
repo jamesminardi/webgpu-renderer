@@ -15,6 +15,9 @@ add_subdirectory(src)
 
 target_link_libraries(app PRIVATE glfw webgpu glfw3webgpu glm )
 
+set_target_properties(app PROPERTIES VS_DEBUGGER_ENVIRONMENT "DAWN_DEBUG_BREAK_ON_ERROR=1")
+
+
 # Disable GLFW build examples, tests, docs
 set(GLFW_BUILD_EXAMPLES OFF CACHE BOOL "" FORCE)
 set(GLFW_BUILD_TESTS OFF CACHE BOOL "" FORCE)

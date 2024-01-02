@@ -128,7 +128,7 @@ enum class Key : int {
 	RightAlt     = 346,
 	RightSuper   = 347, /* Windows key */
 	Menu          = 348,
-	Num,
+	Num
 };
 
 enum class MouseButton : int {
@@ -143,8 +143,8 @@ enum class Action : int {
 	Undefined,
 	Release,
 	Press,
-	Repeat
-	Num,
+	Repeat,
+	Num
 };
 
 

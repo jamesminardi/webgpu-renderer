@@ -7,10 +7,10 @@
 bool Window::glfwInitialized = false;
 
 Window::Window(WindowConfig* config, Application* app) {
-	if(!config) {
-	return;
-	}
 
+	if(!config) {
+		return;
+	}
 
 	// TODO: Move to a static init function or application class init
 	if (!glfwInitialized) {
@@ -38,17 +38,21 @@ Window::Window(WindowConfig* config, Application* app) {
 	glfwSetMouseButtonCallback(handle, glfwMouseButtonCallback);
 	glfwSetScrollCallback(handle, glfwScrollCallback);
 
-
 }
 
 Window::~Window() {
 	if (this->handle) {
 		glfwDestroyWindow(handle);
 	}
+	// Careful of multiple glfw windows
 	glfwTerminate();
 }
 
-wgpu::Surface Window::getSurface(wgpu::Instance instance) {
+void Window::inputPollEvents() {
+	glfwPollEvents();
+}
+
+wgpu::Surface Window::getSurface(wgpu::Instance instance) const {
 	return glfwGetWGPUSurface(instance, handle);
 }
 
@@ -87,7 +91,7 @@ float Window::getAspectRatio() const {
 	return (float)size.x / (float)size.y;
 }
 
-glm::vec2 Window::inputQueryMousePos() const {
+glm::vec2 Window::getMousePos() const {
 	double x, y;
 	glfwGetCursorPos(handle, &x, &y);
 	return {(float)x, (float)y};
@@ -120,7 +124,7 @@ void Window::glfwResizeCallback(GLFWwindow* window, int width, int height) {
 	}
 }
 
-void Window::glfwKeyCallback(GLFWwindow* window, int key, int scancode, int action, int mods) {
+void Window::glfwKeyCallback(GLFWwindow* window, int key, [[maybe_unused]] int scancode, int action, int mods) {
 
 	if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS) {
 		glfwSetWindowShouldClose(window, GLFW_TRUE);
@@ -182,9 +186,12 @@ void Window::glfwMouseButtonCallback(GLFWwindow *window, int button, int action,
 		double xPos, yPos;
 		glfwGetCursorPos(window, &xPos, &yPos);
 
-		bool ctrlKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
-		bool shiftKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
-		bool altKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
+		const bool ctrlKey = bool(mods & GLFW_MOD_CONTROL);
+		const bool shiftKey = bool(mods & GLFW_MOD_SHIFT);
+		const bool altKey = bool(mods & GLFW_MOD_ALT);
+//		bool ctrlKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
+//		bool shiftKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
+//		bool altKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
 
 		auto buttonAction = Input::Action::Undefined;
 		if (action == GLFW_PRESS) {

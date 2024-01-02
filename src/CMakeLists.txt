@@ -1,11 +1,12 @@
 
 add_executable(app main.cpp
-        window.cpp)
+        window.cpp
+        application.cpp
+        implementations.cpp)
 
 set_target_properties(app PROPERTIES
         CXX_STANDARD 17
         CXX_EXTENSIONS OFF
-        COMPILE_WARNING_AS_ERROR ON
         VS_DEBUGGER_ENVIRONMENT "DAWN_DEBUG_BREAK_ON_ERROR=1"
 )
 if(XCODE)

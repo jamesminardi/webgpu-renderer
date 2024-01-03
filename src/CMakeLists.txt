@@ -1,8 +1,10 @@
+include(CMakePrintHelpers)
 
 add_executable(app main.cpp
         window.cpp
         application.cpp
-        implementations.cpp)
+        implementations.cpp
+        shader.cpp)
 
 set_target_properties(app PROPERTIES
         CXX_STANDARD 17
@@ -14,9 +16,6 @@ if(XCODE)
             XCODE_GENERATE_SCHEME ON
             XCODE_SCHEME_ENABLE_GPU_FRAME_CAPTURE_MODE "Metal")
 endif()
-
-target_treat_all_warnings_as_errors(app)
-
 if (EMSCRIPTEN)
     # Generate a full web page rather than a simple WebAssembly module
     set_target_properties(app PROPERTIES SUFFIX ".html")
@@ -29,6 +28,6 @@ if (EMSCRIPTEN)
     )
 endif()
 
+target_treat_all_warnings_as_errors(app)
+
 target_copy_webgpu_binaries(app)
-
-

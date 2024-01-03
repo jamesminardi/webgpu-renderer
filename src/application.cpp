@@ -1,5 +1,8 @@
 #include "application.h"
 
+#include <imgui.h>
+#include <backends/imgui_impl_wgpu.h>
+#include <backends/imgui_impl_glfw.h>
 
 Application::Application() : m_window(nullptr) {
 	initWindowAndDevice();
@@ -10,9 +13,11 @@ Application::Application() : m_window(nullptr) {
 	initGeometry();
 	initUniforms();
 	initBindGroup();
+	initGui();
 }
 
 Application::~Application() {
+	terminateGui();
 	terminateBindGroup();
 	terminateUniforms();
 	terminateGeometry();
@@ -61,6 +66,9 @@ void Application::onFrame() {
 	// Draw triangles
 	renderPass.draw(3,1,0,0);
 
+	// We add the GUI drawing commands to the render pass
+	updateGui(renderPass);
+
 	renderPass.end();
 
 	// Destroy texture view
@@ -98,7 +106,7 @@ void Application::initWindowAndDevice() {
 	windowConfig.width = 640;
 	windowConfig.height = 480;
 	windowConfig.resizable = true;
-	m_window = new Window(&windowConfig, this);
+	m_window = std::make_unique<Window>(&windowConfig, this);;
 
 	// Get surface
 	// ---------------------------------------------------
@@ -126,15 +134,39 @@ void Application::initWindowAndDevice() {
 		std::cout << " - " << f << std::endl;
 	}
 
+	wgpu::SupportedLimits supportedLimits;
+	adapter.getLimits(&supportedLimits);
 
 	// Get device
 	// ---------------------------------------------------
 	std::cout << "Requesting device..." << std::endl;
+
+	// Set required limits for the device.
+	wgpu::RequiredLimits requiredLimits = wgpu::Default;
+	requiredLimits.limits.maxVertexAttributes = 4;
+	requiredLimits.limits.maxVertexBuffers = 1;
+	requiredLimits.limits.maxBufferSize = 150000 * sizeof(VertexAttributes);
+	requiredLimits.limits.maxVertexBufferArrayStride = sizeof(VertexAttributes);
+	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+	requiredLimits.limits.maxInterStageShaderComponents = 8;
+	requiredLimits.limits.maxBindGroups = 2; // Required to be at least 2 for ImGui
+
+	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
+	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
+	// Allow textures up to 2K
+	requiredLimits.limits.maxTextureDimension1D = 2048;
+	requiredLimits.limits.maxTextureDimension2D = 2048;
+	requiredLimits.limits.maxTextureArrayLayers = 1;
+	requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
+	requiredLimits.limits.maxSamplersPerShaderStage = 1;
+
+
 	wgpu::DeviceDescriptor deviceDesc{};
 	deviceDesc.nextInChain = nullptr;
 	deviceDesc.label = "James Device";
 	deviceDesc.requiredFeaturesCount = 0; // Do not require any specific feature
-	deviceDesc.requiredLimits = nullptr; // Do not require any specific limit
+	deviceDesc.requiredLimits = &requiredLimits;
 	deviceDesc.defaultQueue.label = "Default Queue";
 
 	m_device = adapter.requestDevice(deviceDesc);
@@ -158,16 +190,16 @@ void Application::initWindowAndDevice() {
 
 	// Error callback for more debug info
 	m_errorCallbackHandle = m_device.setUncapturedErrorCallback([](wgpu::ErrorType type, char const* message) {
-		std::cout << "Device error: type " << type;
-		if (message) std::cout << " (message: " << message << ")";
-		std::cout << std::endl;
+		std::cerr << "Device error: type " << type;
+		if (message) std::cerr << " (message: " << message << ")";
+		std::cerr << std::endl;
 	});
 
 #ifdef WEBGPU_BACKEND_DAWN
 	m_deviceLostCallbackHandle = m_device.setDeviceLostCallback([](wgpu::DeviceLostReason type, char const* message) {
-		std::cout << "Device lost: reason " << type;
-		if (message) std::cout << " (message: " << message << ")";
-		std::cout << std::endl;
+		std::cerr << "Device lost: reason " << type;
+		if (message) std::cerr << " (message: " << message << ")";
+		std::cerr << std::endl;
 	});
 #endif
 
@@ -194,8 +226,6 @@ void Application::terminateWindowAndDevice() {
 	m_device.release();
 	m_surface.release();
 	m_instance.release();
-
-	delete m_window;
 }
 
 void Application::initSwapChain() {
@@ -233,41 +263,7 @@ void Application::terminateDepthBuffer() {
 void Application::initRenderPipeline() {
 
 	std::cout << "Creating shader module..." << std::endl;
-
-	const char* shaderSource = R"(
-@vertex
-fn vs_main(@builtin(vertex_index) in_vertex_index: u32) -> @builtin(position) vec4<f32> {
-	var p = vec2f(0.0, 0.0);
-	if (in_vertex_index == 0u) {
-		p = vec2f(-0.5, -0.5);
-	} else if (in_vertex_index == 1u) {
-		p = vec2f(0.5, -0.5);
-	} else {
-		p = vec2f(0.0, 0.5);
-	}
-	return vec4f(p, 0.0, 1.0);
-}
-
-@fragment
-fn fs_main() -> @location(0) vec4f {
-    return vec4f(0.0, 0.4, 1.0, 1.0);
-}
-)";
-
-	// Create shader module and chain WGSL shader code
-	wgpu::ShaderModuleDescriptor shaderDesc{};
-#ifdef WEBGPU_BACKEND_WGPU // Dawn does use hints right now
-	shaderDesc.hintCount = 0;
-	shaderDesc.hints = nullptr;
-#endif
-	wgpu::ShaderModuleWGSLDescriptor shaderCodeDesc{};
-	shaderCodeDesc.chain.next = nullptr;
-	shaderCodeDesc.chain.sType = wgpu::SType::ShaderModuleWGSLDescriptor;
-	shaderDesc.nextInChain = &shaderCodeDesc.chain;
-
-	shaderCodeDesc.code = shaderSource;
-
-	m_shaderModule = m_device.createShaderModule(shaderDesc);
+	m_shaderModule = Shader::loadShaderModule(m_device, RESOURCE_DIR "/shaders/static_triangle.wgsl");
 	std::cout << "Shader module: " << m_shaderModule << std::endl;
 
 
@@ -370,27 +366,82 @@ void Application::terminateBindGroup() {
 
 }
 
+void Application::initGui() {
+	// Setup Dear ImGui context
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGui::GetIO();
+
+	// Setup Platform/Renderer backends
+	ImGui_ImplGlfw_InitForOther(m_window->handle, true);
+	ImGui_ImplWGPU_Init(m_device, 3, m_swapChainFormat); // m_depthTextureFormat
+}
+
+void Application::terminateGui() {
+	ImGui_ImplGlfw_Shutdown();
+	ImGui_ImplWGPU_Shutdown();
+}
+
+void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
+	// Start ImGui frame
+	ImGui_ImplWGPU_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
+
+	// [...] Build our UI
+	static float f = 0.0f;
+	static int counter = 0;
+	static bool show_demo_window = true;
+	static bool show_another_window = false;
+	static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
+
+	ImGui::Begin("Hello, world!");								// Create a window called "Hello, world!" and append into it.
+
+	ImGui::Text("This is some useful text.");						// Display some text (you can use a format strings too)
+	ImGui::Checkbox("Demo Window", &show_demo_window);			// Edit bools storing our window open/close state
+	ImGui::Checkbox("Another Window", &show_another_window);
+
+	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);	// Edit 1 float using a slider from 0.0f to 1.0f
+	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
+
+	if (ImGui::Button("Button"))									// Buttons return true when clicked (most widgets return true when edited/activated)
+		counter++;
+	ImGui::SameLine();
+	ImGui::Text("counter = %d", counter);
+
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+	ImGui::End();
+
+	// Draw the UI
+	ImGui::EndFrame();
+	// Convert the UI defined above into low-level draw commands
+	ImGui::Render();
+	// Execute the low-level draw commands on WebGPU backend
+	ImGui_ImplWGPU_RenderDrawData(ImGui::GetDrawData(), renderPass);
+}
+
 
 // Input Callbacks
 // ---------------
 
-void Application::onResize(int width, int height) {
+void Application::onResize([[maybe_unused]] int width, [[maybe_unused]] int height) {
 	terminateSwapChain();
 	initSwapChain();
 }
 
-void Application::onKey(Input::Key key, Input::Action buttonAction, bool ctrlKey, bool shiftKey, bool altKey) {
+void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::Action buttonAction,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
 
 }
 
-void Application::onMouseMove(glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey) {
+void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
 
 }
 
-void Application::onMouseClick(Input::MouseButton button, Input::Action buttonAction, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey) {
+void Application::onMouseClick([[maybe_unused]] Input::MouseButton button, [[maybe_unused]] Input::Action buttonAction, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
 
 }
 
-void Application::onScroll(glm::vec2 scrollOffset, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey) {
+void Application::onScroll([[maybe_unused]] glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
 
 }

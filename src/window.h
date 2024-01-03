@@ -46,7 +46,7 @@ public:
 
 	void setTitle(const std::string& title);
 
-	void enableApplicationCallbacks(Application* app);
+	[[maybe_unused]] void enableApplicationCallbacks(Application* app);
 	void disableApplicationCallbacks();
 
 	glm::ivec2 getSize() const;

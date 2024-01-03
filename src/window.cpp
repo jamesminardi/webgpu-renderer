@@ -218,8 +218,8 @@ void Window::glfwScrollCallback(GLFWwindow *window, double xOffset, double yOffs
 		bool ctrlKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
 		bool shiftKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
 		bool altKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
-		app->onScroll({rescaleMouseScroll(xOffset, app->getWindow()->mouseScrollScaleFactor),
-					   rescaleMouseScroll(yOffset, app->getWindow()->mouseScrollScaleFactor)},
+		app->onScroll({rescaleMouseScroll(xOffset, app->getWindow().mouseScrollScaleFactor),
+					   rescaleMouseScroll(yOffset, app->getWindow().mouseScrollScaleFactor)},
 					  {(float)xPos, (float)yPos},  ctrlKey, shiftKey, altKey);
 	}
 }
@@ -227,7 +227,7 @@ void Window::glfwScrollCallback(GLFWwindow *window, double xOffset, double yOffs
 
 static Input::Key remapGlfwKeyCode(int key)
 {
-	Input::Key key_code = Input::Key::Unknown;
+	Input::Key key_code;
 	switch (key) {
 		case GLFW_KEY_ESCAPE:
 			key_code = Input::Key::Escape;

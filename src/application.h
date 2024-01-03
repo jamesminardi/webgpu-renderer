@@ -4,6 +4,20 @@
 #include <glm/glm.hpp>
 #include "window.h"
 #include "input.h"
+#include "shader.h"
+
+/*
+ * A structure that describes the data layout in the vertex buffer,
+ * used by loadGeometryFromObj and used it in `sizeof` and `offsetof`
+ * when uploading data to the GPU.
+ */
+struct VertexAttributes {
+	glm::vec3 position;
+	glm::vec3 normal;
+	glm::vec3 color;
+	glm::vec2 uv;
+};
+
 
 class Application {
 public:
@@ -15,14 +29,14 @@ public:
 
 	bool isRunning();
 
-	Window* getWindow() {
-		return m_window;
+	Window& getWindow() {
+		return *m_window;
 	}
 
 	// Modifier parameters are true if they are pressed while onKey is called
 	// TODO: Just have implementation call for modifier keys and mouse position using window get methods instead of passing in
 	void onResize(int width, int height);
-	void onKey(Input::Key key, Input::Action buttonAction, bool ctrlKey, bool shiftKey, bool altKey);
+	void onKey([[maybe_unused]] [[maybe_unused]] Input::Key key, Input::Action buttonAction, bool ctrlKey, bool shiftKey, bool altKey);
 	void onMouseMove(glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
 	void onMouseClick(Input::MouseButton button, Input::Action buttonAction, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
 	void onScroll(glm::vec2 scrollOffset, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
@@ -52,9 +66,14 @@ private:
 	void initBindGroup();
 	void terminateBindGroup();
 
+	void initGui(); // called in onInit
+	void terminateGui(); // called in onFinish
+	void updateGui(wgpu::RenderPassEncoder renderPass); // called in onFrame
+
+
 private:
 
-	Window* m_window;
+	std::unique_ptr<Window> m_window;
 
 	// Window and Device
 	wgpu::Instance m_instance = nullptr;

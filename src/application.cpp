@@ -29,6 +29,19 @@ Application::~Application() {
 }
 
 void Application::onFrame() {
+
+	// Do nothing, this checks for ongoing asynchronous operations and call their callbacks
+	// Be sure to destroy/release buffers that relate to the callbacks outside the main loop.
+#ifdef WEBGPU_BACKEND_WGPU
+	// Non-standardized behavior: submit empty queue to flush callbacks
+    // (wgpu-native also has a device.poll but its API is more complex)
+    m_queue.submit(0, nullptr);
+#else
+	// Non-standard Dawn way
+	// Dawn doesn't check for errors immediately, only on device tick.
+	m_device.tick();
+#endif
+
 	m_window->inputPollEvents();
 
 	// Get target texture view
@@ -63,8 +76,12 @@ void Application::onFrame() {
 	// Select which pipeline to use
 	renderPass.setPipeline(m_pipeline);
 
+	// Set vertex buffer while encoding the render pass
+	renderPass.setVertexBuffer(0, m_vertexBuffer, 0, m_vertexCount * 2 * sizeof(float));
+
 	// Draw triangles
-	renderPass.draw(3,1,0,0);
+	// We use the `vertexCount` variable instead of hard-coding the vertex count
+	renderPass.draw(m_vertexCount,1,0,0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -82,11 +99,6 @@ void Application::onFrame() {
 
 	// Present swap chain
 	m_swapChain.present();
-
-#ifdef WEBGPU_BACKEND_DAWN
-	// Dawn doesn't check for errors immediately, only on device tick.
-	m_device.tick();
-#endif
 
 }
 
@@ -142,11 +154,15 @@ void Application::initWindowAndDevice() {
 	std::cout << "Requesting device..." << std::endl;
 
 	// Set required limits for the device.
-	wgpu::RequiredLimits requiredLimits = wgpu::Default;
+	wgpu::RequiredLimits requiredLimits = wgpu::Default; // Don't forget to set to default first!
 	requiredLimits.limits.maxVertexAttributes = 4;
 	requiredLimits.limits.maxVertexBuffers = 1;
-	requiredLimits.limits.maxBufferSize = 150000 * sizeof(VertexAttributes);
-	requiredLimits.limits.maxVertexBufferArrayStride = sizeof(VertexAttributes);
+	// Maximum size of a buffer is 6 vertices of 2 float each
+	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
+	// Maximum stride between 2 consecutive vertices in the vertex buffer
+	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float); // Needs to be 5 for imgui
+
+	// Must be set even if we do not use storage or uniform buffers for now
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
 	requiredLimits.limits.maxInterStageShaderComponents = 8;
@@ -154,6 +170,7 @@ void Application::initWindowAndDevice() {
 
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
 	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
+
 	// Allow textures up to 2K
 	requiredLimits.limits.maxTextureDimension1D = 2048;
 	requiredLimits.limits.maxTextureDimension2D = 2048;
@@ -174,6 +191,13 @@ void Application::initWindowAndDevice() {
 		throw std::runtime_error("Could not obtain device!");
 	}
 	std::cout << "Got device: " << m_device << std::endl;
+
+	// See what adapter and device limits are
+	adapter.getLimits(&supportedLimits);
+	std::cout << "adapter.maxVertexAttributes: " << supportedLimits.limits.maxVertexAttributes << std::endl;
+
+	m_device.getLimits(&supportedLimits);
+	std::cout << "device.maxVertexAttributes: " << supportedLimits.limits.maxVertexAttributes << std::endl;
 
 
 	// Set swapChain format by querying the surface
@@ -270,9 +294,26 @@ void Application::initRenderPipeline() {
 	std::cout << "Creating render pipeline..." << std::endl;
 	wgpu::RenderPipelineDescriptor pipelineDesc{};
 
-	// Vertex Fetch (No input buffer right now)
-	pipelineDesc.vertex.bufferCount = 0;
-	pipelineDesc.vertex.buffers = nullptr;
+	// Vertex fetch
+	wgpu::VertexAttribute vertexAttrib;
+	// == Per attribute ==
+	// Corresponds to @location(...)
+	vertexAttrib.shaderLocation = 0;
+	// Means vec2<f32> in the shader
+	vertexAttrib.format = wgpu::VertexFormat::Float32x2;
+	// Index of the first element
+	vertexAttrib.offset = 0;
+
+	wgpu::VertexBufferLayout vertexBufferLayout;
+	// [...] Build vertex buffer layout
+	vertexBufferLayout.attributeCount = 1;
+	vertexBufferLayout.attributes = &vertexAttrib;
+	// == Common to attributes from the same buffer ==
+	vertexBufferLayout.arrayStride = 2 * sizeof(float);
+	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
+
+	pipelineDesc.vertex.bufferCount = 1;
+	pipelineDesc.vertex.buffers = &vertexBufferLayout;
 
 	// Vertex Shader
 	pipelineDesc.vertex.module = m_shaderModule;
@@ -292,6 +333,7 @@ void Application::initRenderPipeline() {
 	fragmentState.module = m_shaderModule;
 	fragmentState.entryPoint = "fs_main";
 	fragmentState.constantCount = 0;
+	fragmentState.constants = nullptr;
 
 	// Blend State
 	wgpu::BlendState blendState{};
@@ -320,7 +362,11 @@ void Application::initRenderPipeline() {
 	pipelineDesc.multisample.alphaToCoverageEnabled = false; // Irrelevant for count=1
 
 	// Pipeline Layout
-	pipelineDesc.layout = nullptr; // No pipeline layout for now
+	wgpu::PipelineLayoutDescriptor layoutDesc{};
+	layoutDesc.label = "Pipeline Layout";
+	layoutDesc.bindGroupLayoutCount = 0;
+	layoutDesc.bindGroupLayouts = nullptr;
+	pipelineDesc.layout = m_device.createPipelineLayout(layoutDesc);
 
 	m_pipeline = m_device.createRenderPipeline(pipelineDesc);
 	if (!m_pipeline) {
@@ -344,10 +390,41 @@ void Application::terminateTexture() {
 
 void Application::initGeometry() {
 
+	std::cout << "Creating geometry..." << std::endl;
+
+	// Vertex buffer
+	// There are 2 floats per vertex, one for x and one for y.
+	// But in the end this is just a bunch of floats to the eyes of the GPU,
+	// the *layout* will tell how to interpret this.
+	std::vector<float> vertexData = {
+			-0.5, -0.5,
+			+0.5, -0.5,
+			+0.0, +0.5,
+
+			-0.55f, -0.5,
+			-0.05f, +0.5,
+			-0.55f, +0.5
+	};
+	m_vertexCount = static_cast<int>(vertexData.size() / 2);
+
+	// Create vertex buffer
+	wgpu::BufferDescriptor bufferDesc{};
+	bufferDesc.size = vertexData.size() * sizeof(float);
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+	bufferDesc.mappedAtCreation = false;
+	m_vertexBuffer = m_device.createBuffer(bufferDesc);
+
+	// Upload geometry data to the buffer
+	m_queue.writeBuffer(m_vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+
+	std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
+
 }
 
 void Application::terminateGeometry() {
-
+	m_vertexBuffer.destroy();
+	m_vertexBuffer.release();
+	m_vertexCount = 0;
 }
 
 void Application::initUniforms() {

@@ -97,4 +97,7 @@ private:
 	wgpu::ShaderModule m_shaderModule = nullptr;
 	wgpu::RenderPipeline m_pipeline = nullptr;
 
+	wgpu::Buffer m_vertexBuffer = nullptr;
+	int m_vertexCount = 0;
+
 };

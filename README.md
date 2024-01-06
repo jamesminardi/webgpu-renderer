@@ -1,4 +1,4 @@
-# WebGPU C++ Template
+# WebGPU C++ Renderer
 
 > [!WARNING]
 > Work in Progress
@@ -16,6 +16,8 @@ This is a personal WebGPU C++ template to allow cross-platform compatibility bas
   - [`Dawn`](https://dawn.googlesource.com/dawn): Google's WebGPU implementation developed for Chrome in C++
 - [`WebGPU-Cpp`](https://github.com/eliemichel/WebGPU-Cpp): WebGPU C++ Wrapper
 - [`GLFW3 WebGPU`](https://github.com/eliemichel/WebGPU-Cpp): Wrapper for GLFW to support cross-platform WebGPU
+- [`ImGui`](https://github.com/ocornut/imgui): Lightweight dev gui
+- [`GLM`](https://github.com/g-truc/glm): Math library
 
 _All of these are included through git submodules._
 

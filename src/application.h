@@ -73,6 +73,33 @@ private:
 
 private:
 
+
+	// Vertex buffer
+	// There are 2 floats per vertex, one for x and one for y.
+	// But in the end this is just a bunch of floats to the eyes of the GPU,
+	// the *layout* will tell how to interpret this.
+	std::vector<float> m_positionData = {
+			-0.5, -0.5,
+			+0.5, -0.5,
+			+0.0, +0.5,
+
+			-0.55f, -0.5,
+			-0.05f, +0.5,
+			-0.55f, +0.5
+	};
+
+	// Color buffer, rgb
+	std::vector<float> m_colorData = {
+			1.0, 0.0, 0.0,
+			0.0, 1.0, 0.0,
+			0.0, 0.0, 1.0,
+
+			1.0, 1.0, 0.0,
+			1.0, 0.0, 1.0,
+			0.0, 1.0, 1.0
+	};
+
+
 	std::unique_ptr<Window> m_window;
 
 	// Window and Device
@@ -97,7 +124,8 @@ private:
 	wgpu::ShaderModule m_shaderModule = nullptr;
 	wgpu::RenderPipeline m_pipeline = nullptr;
 
-	wgpu::Buffer m_vertexBuffer = nullptr;
+	wgpu::Buffer m_positionBuffer = nullptr;
+	wgpu::Buffer m_colorBuffer = nullptr;
 	int m_vertexCount = 0;
 
 };

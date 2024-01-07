@@ -77,7 +77,9 @@ void Application::onFrame() {
 	renderPass.setPipeline(m_pipeline);
 
 	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_vertexBuffer, 0, m_vertexCount * 2 * sizeof(float));
+	renderPass.setVertexBuffer(0, m_positionBuffer, 0, m_positionData.size() * sizeof(float));
+
+	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_colorData.size() * sizeof(float));
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
@@ -155,8 +157,8 @@ void Application::initWindowAndDevice() {
 
 	// Set required limits for the device.
 	wgpu::RequiredLimits requiredLimits = wgpu::Default; // Don't forget to set to default first!
-	requiredLimits.limits.maxVertexAttributes = 4;
-	requiredLimits.limits.maxVertexBuffers = 1;
+	requiredLimits.limits.maxVertexAttributes = 3; // Imgui uses 3
+	requiredLimits.limits.maxVertexBuffers = 2;
 	// Maximum size of a buffer is 6 vertices of 2 float each
 	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
 	// Maximum stride between 2 consecutive vertices in the vertex buffer
@@ -165,7 +167,7 @@ void Application::initWindowAndDevice() {
 	// Must be set even if we do not use storage or uniform buffers for now
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
-	requiredLimits.limits.maxInterStageShaderComponents = 8;
+	requiredLimits.limits.maxInterStageShaderComponents = 6; // 6 used by imgui, 3 by us
 	requiredLimits.limits.maxBindGroups = 2; // Required to be at least 2 for ImGui
 
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
@@ -294,26 +296,37 @@ void Application::initRenderPipeline() {
 	std::cout << "Creating render pipeline..." << std::endl;
 	wgpu::RenderPipelineDescriptor pipelineDesc{};
 
-	// Vertex fetch
-	wgpu::VertexAttribute vertexAttrib;
-	// == Per attribute ==
-	// Corresponds to @location(...)
-	vertexAttrib.shaderLocation = 0;
-	// Means vec2<f32> in the shader
-	vertexAttrib.format = wgpu::VertexFormat::Float32x2;
-	// Index of the first element
-	vertexAttrib.offset = 0;
 
-	wgpu::VertexBufferLayout vertexBufferLayout;
-	// [...] Build vertex buffer layout
-	vertexBufferLayout.attributeCount = 1;
-	vertexBufferLayout.attributes = &vertexAttrib;
-	// == Common to attributes from the same buffer ==
-	vertexBufferLayout.arrayStride = 2 * sizeof(float);
-	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
+	// Vector because there are 2 attributes in separate buffers
+	// (As opposed to multiple vertex attributes in one buffer)
+	std::vector<wgpu::VertexBufferLayout> vertexBufferLayouts(2);
 
-	pipelineDesc.vertex.bufferCount = 1;
-	pipelineDesc.vertex.buffers = &vertexBufferLayout;
+	// Position attribute
+	wgpu::VertexAttribute positionAttrib;
+	positionAttrib.shaderLocation = 0; // Corresponds to @location(...)
+	positionAttrib.format = wgpu::VertexFormat::Float32x2; // size of position, Means vec2<f32> in the shader
+	positionAttrib.offset = 0; // Index of the first element
+	// Build vertex buffer layout
+	vertexBufferLayouts[0].attributeCount = 1;
+	vertexBufferLayouts[0].attributes = &positionAttrib;
+	vertexBufferLayouts[0].arrayStride = 2 * sizeof(float); // size of position, since only color attribs in this buffer
+	vertexBufferLayouts[0].stepMode = wgpu::VertexStepMode::Vertex;
+
+
+	// Color attribute
+	wgpu::VertexAttribute colorAttrib;
+	colorAttrib.shaderLocation = 1; // Corresponds to @location(...)
+	colorAttrib.format = wgpu::VertexFormat::Float32x3; // size of color, Means vec3<f32> in the shader
+	colorAttrib.offset = 0; // Index of the first element
+	// Build color buffer layout
+	vertexBufferLayouts[1].attributeCount = 1;
+	vertexBufferLayouts[1].attributes = &colorAttrib;
+	vertexBufferLayouts[1].arrayStride = 3 * sizeof(float); // size of color, since only color attribs in this buffer
+	vertexBufferLayouts[1].stepMode = wgpu::VertexStepMode::Vertex;
+
+
+	pipelineDesc.vertex.bufferCount = static_cast<uint32_t>(vertexBufferLayouts.size());
+	pipelineDesc.vertex.buffers = vertexBufferLayouts.data();
 
 	// Vertex Shader
 	pipelineDesc.vertex.module = m_shaderModule;
@@ -392,38 +405,37 @@ void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
-	// Vertex buffer
-	// There are 2 floats per vertex, one for x and one for y.
-	// But in the end this is just a bunch of floats to the eyes of the GPU,
-	// the *layout* will tell how to interpret this.
-	std::vector<float> vertexData = {
-			-0.5, -0.5,
-			+0.5, -0.5,
-			+0.0, +0.5,
+	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
+	assert(m_vertexCount == static_cast<int>(m_colorData.size() / 3));
 
-			-0.55f, -0.5,
-			-0.05f, +0.5,
-			-0.55f, +0.5
-	};
-	m_vertexCount = static_cast<int>(vertexData.size() / 2);
-
-	// Create vertex buffer
+	// Create position buffer
 	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.size = vertexData.size() * sizeof(float);
+	bufferDesc.size = m_positionData.size() * sizeof(float);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
-	m_vertexBuffer = m_device.createBuffer(bufferDesc);
+	m_positionBuffer = m_device.createBuffer(bufferDesc);
 
-	// Upload geometry data to the buffer
-	m_queue.writeBuffer(m_vertexBuffer, 0, vertexData.data(), bufferDesc.size);
+	// Upload pos data to position buffer
+	m_queue.writeBuffer(m_positionBuffer, 0, m_positionData.data(), bufferDesc.size);
 
-	std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
+	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
+
+
+	// Create color buffer
+	bufferDesc.size = m_colorData.size() * sizeof(float);
+	m_colorBuffer = m_device.createBuffer(bufferDesc);
+
+	// Upload color data to color buffer
+	m_queue.writeBuffer(m_colorBuffer, 0, m_colorData.data(), bufferDesc.size);
+
+	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
+
 
 }
 
 void Application::terminateGeometry() {
-	m_vertexBuffer.destroy();
-	m_vertexBuffer.release();
+	m_positionBuffer.destroy();
+	m_positionBuffer.release();
 	m_vertexCount = 0;
 }
 

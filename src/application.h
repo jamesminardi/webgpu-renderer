@@ -73,6 +73,15 @@ private:
 
 private:
 
+	const std::string m_platformStr =
+#if  defined(WEBGPU_BACKEND_DAWN)
+			"Dawn";
+#elif defined(WEBGPU_BACKEND_WGPU)
+			"WGPU";
+#else
+			"Unknown";
+#endif
+
 
 	// Vertex buffer
 	// There are 2 floats per vertex, one for x and one for y.

@@ -60,7 +60,7 @@ void Application::onFrame() {
 	renderPassColorAttachment.resolveTarget = nullptr;
 	renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
 	renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
-	renderPassColorAttachment.clearValue = { 0.0f, 0.2f, 0.3f, 1.0f };
+	renderPassColorAttachment.clearValue = { 0.05, 0.05, 0.05, 1.0 };
 
 
 	wgpu::RenderPassDescriptor renderPassDesc{};
@@ -116,7 +116,7 @@ void Application::initWindowAndDevice() {
 	}
 
 	WindowConfig windowConfig{};
-	windowConfig.title = "Learn WebGPU";
+	windowConfig.title = "WebGPU App" " (" + m_platformStr + ")";
 	windowConfig.width = 640;
 	windowConfig.height = 480;
 	windowConfig.resizable = true;

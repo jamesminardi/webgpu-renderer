@@ -27,7 +27,7 @@ _All of these are included through git submodules._
 
 ### Build Requirements
 - [`cmake`](https://cmake.org): 3.20+
-- a modern C++17 compiler: (`gcc-8`, `clang-6.0`, `MSVC 2017` or above)
+- a modern C++20 compiler: todo update versions:(`gcc-8`, `clang-6.0`, `MSVC 2017` or above)
 - [`Emscripten`](https://github.com/emscripten-core/emscripten): (Required for building to web)
 
 > [!NOTE]  

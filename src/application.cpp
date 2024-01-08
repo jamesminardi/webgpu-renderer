@@ -335,7 +335,7 @@ void Application::initRenderPipeline() {
 	pipelineDesc.vertex.constants = nullptr;
 
 	// Primitive Assembly & Rasterization
-	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
+	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleStrip; // Treat each 3 vertices as a triangle
 	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined; // Vertices considered sequentially
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW; // Counter-clockwise vertices are front-facing
 	pipelineDesc.primitive.cullMode = wgpu::CullMode::None; // Do not cull any triangles for debugging
@@ -405,7 +405,31 @@ void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
+	const int numSides = 5;
+	const auto radiansPerVertex = static_cast<float>(2.0 * std::numbers::pi / numSides);
+	const float radius = 0.5f;
+
+	for (int i = 0; i < numSides; i++) {
+		float angle = static_cast<float>(i) * radiansPerVertex;
+		float x = radius * std::cos(angle);
+		float y = radius * std::sin(angle);
+		m_positionData.push_back(x);
+		m_positionData.push_back(y);
+
+		// i is odd (Thus center vertex needs to be inserted
+		if (i & 1) {
+			m_positionData.push_back(0.0f);
+			m_positionData.push_back(0.0f);
+		}
+
+	}
+	m_positionData.push_back(m_positionData[0]);
+	m_positionData.push_back(m_positionData[1]);
+
+
 	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
+	std::cout << "Vertex Count: " << m_positionData.size() / 2 << std::endl;
+	std::cout << "Color Count: " << m_colorData.size() / 3 << std::endl;
 	assert(m_vertexCount == static_cast<int>(m_colorData.size() / 3));
 
 	// Create position buffer

@@ -1,5 +1,6 @@
 #pragma once
 
+#include <numbers>
 #include <webgpu/webgpu.hpp>
 #include <glm/glm.hpp>
 #include "window.h"
@@ -82,30 +83,22 @@ private:
 			"Unknown";
 #endif
 
-
 	// Vertex buffer
 	// There are 2 floats per vertex, one for x and one for y.
 	// But in the end this is just a bunch of floats to the eyes of the GPU,
 	// the *layout* will tell how to interpret this.
-	std::vector<float> m_positionData = {
-			-0.5, -0.5,
-			+0.5, -0.5,
-			+0.0, +0.5,
-
-			-0.55f, -0.5,
-			-0.05f, +0.5,
-			-0.55f, +0.5
-	};
+	std::vector<float> m_positionData;
 
 	// Color buffer, rgb
 	std::vector<float> m_colorData = {
-			1.0, 0.0, 0.0,
-			0.0, 1.0, 0.0,
-			0.0, 0.0, 1.0,
-
-			1.0, 1.0, 0.0,
-			1.0, 0.0, 1.0,
-			0.0, 1.0, 1.0
+			1.0f, 0.0f, 0.0f, // red
+			0.0f, 1.0f, 0.0f, // green
+			0.0f, 0.0f, 1.0f, // blue
+			1.0f, 0.0f, 0.0f, // red
+			0.0f, 1.0f, 0.0f, // green
+			0.0f, 0.0f, 1.0f, // blue
+			1.0f, 0.0f, 0.0f, // red
+			0.0f, 1.0f, 0.0f, // green
 	};
 
 

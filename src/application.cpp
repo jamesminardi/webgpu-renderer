@@ -426,7 +426,7 @@ void Application::initGeometry() {
 	m_positionData.push_back(m_positionData[0]);
 	m_positionData.push_back(m_positionData[1]);
 
-
+	// Confirm that we have the right number of vertices
 	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
 	std::cout << "Vertex Count: " << m_positionData.size() / 2 << std::endl;
 	std::cout << "Color Count: " << m_colorData.size() / 3 << std::endl;

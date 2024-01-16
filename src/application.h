@@ -90,16 +90,9 @@ private:
 	std::vector<float> m_positionData;
 
 	// Color buffer, rgb
-	std::vector<float> m_colorData = {
-			1.0f, 0.0f, 0.0f, // red
-			0.0f, 1.0f, 0.0f, // green
-			0.0f, 0.0f, 1.0f, // blue
-			1.0f, 0.0f, 0.0f, // red
-			0.0f, 1.0f, 0.0f, // green
-			0.0f, 0.0f, 1.0f, // blue
-			1.0f, 0.0f, 0.0f, // red
-			0.0f, 1.0f, 0.0f, // green
-	};
+	std::vector<float> m_colorData;
+
+	int numSides = 3;
 
 
 	std::unique_ptr<Window> m_window;

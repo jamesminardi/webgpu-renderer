@@ -401,11 +401,14 @@ void Application::terminateTexture() {
 
 }
 
+
 void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
-	const int numSides = 5;
+	m_positionData.clear();
+	m_colorData.clear();
+
 	const auto radiansPerVertex = static_cast<float>(2.0 * std::numbers::pi / numSides);
 	const float radius = 0.5f;
 
@@ -415,16 +418,26 @@ void Application::initGeometry() {
 		float y = radius * std::sin(angle);
 		m_positionData.push_back(x);
 		m_positionData.push_back(y);
+		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 
-		// i is odd (Thus center vertex needs to be inserted
+		// i is odd (Thus center vertex needs to be inserted)
 		if (i & 1) {
 			m_positionData.push_back(0.0f);
 			m_positionData.push_back(0.0f);
+			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+
 		}
 
 	}
 	m_positionData.push_back(m_positionData[0]);
 	m_positionData.push_back(m_positionData[1]);
+	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 
 	// Confirm that we have the right number of vertices
 	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
@@ -443,7 +456,6 @@ void Application::initGeometry() {
 	m_queue.writeBuffer(m_positionBuffer, 0, m_positionData.data(), bufferDesc.size);
 
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
-
 
 	// Create color buffer
 	bufferDesc.size = m_colorData.size() * sizeof(float);
@@ -502,20 +514,21 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	ImGui::NewFrame();
 
 	// [...] Build our UI
-	static float f = 0.0f;
 	static int counter = 0;
 	static bool show_demo_window = true;
 	static bool show_another_window = false;
 	static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-	ImGui::Begin("Hello, world!");								// Create a window called "Hello, world!" and append into it.
+	ImGui::Begin("Render");								// Create a window
 
-	ImGui::Text("This is some useful text.");						// Display some text (you can use a format strings too)
-	ImGui::Checkbox("Demo Window", &show_demo_window);			// Edit bools storing our window open/close state
-	ImGui::Checkbox("Another Window", &show_another_window);
+//	ImGui::Text("This is some useful text.");					// Display some text (you can use a format strings too)
+//	ImGui::Checkbox("Demo Window", &show_demo_window);			// Edit bools storing our window open/close state
+//	ImGui::Checkbox("Another Window", &show_another_window);
 
-	ImGui::SliderFloat("float", &f, 0.0f, 1.0f);	// Edit 1 float using a slider from 0.0f to 1.0f
-	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
+	if (ImGui::SliderInt("sides", &numSides, 3, 50)) {		// Edit 1 int using a slider
+		initGeometry();
+	}
+//	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
 	if (ImGui::Button("Button"))									// Buttons return true when clicked (most widgets return true when edited/activated)
 		counter++;

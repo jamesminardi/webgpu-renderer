@@ -81,9 +81,12 @@ void Application::onFrame() {
 
 	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_colorData.size() * sizeof(float));
 
+	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, m_indexData.size() * sizeof(uint16_t));
+
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
-	renderPass.draw(m_vertexCount,1,0,0);
+//	renderPass.draw(m_vertexCount,1,0,0);
+	renderPass.drawIndexed(m_indexCount, 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -335,7 +338,7 @@ void Application::initRenderPipeline() {
 	pipelineDesc.vertex.constants = nullptr;
 
 	// Primitive Assembly & Rasterization
-	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleStrip; // Treat each 3 vertices as a triangle
+	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
 	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined; // Vertices considered sequentially
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW; // Counter-clockwise vertices are front-facing
 	pipelineDesc.primitive.cullMode = wgpu::CullMode::None; // Do not cull any triangles for debugging
@@ -408,10 +411,20 @@ void Application::initGeometry() {
 
 	m_positionData.clear();
 	m_colorData.clear();
+	m_indexData.clear();
 
 	const auto radiansPerVertex = static_cast<float>(2.0 * std::numbers::pi / numSides);
 	const float radius = 0.5f;
 
+
+	m_positionData.push_back(0.0f);
+	m_positionData.push_back(0.0f);
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+	m_colorData.push_back(1.0);
+	m_colorData.push_back(1.0);
+	m_colorData.push_back(1.0);
 	for (int i = 0; i < numSides; i++) {
 		float angle = static_cast<float>(i) * radiansPerVertex;
 		float x = radius * std::cos(angle);
@@ -421,29 +434,62 @@ void Application::initGeometry() {
 		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-
-		// i is odd (Thus center vertex needs to be inserted)
-		if (i & 1) {
-			m_positionData.push_back(0.0f);
-			m_positionData.push_back(0.0f);
-			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-
-		}
-
 	}
-	m_positionData.push_back(m_positionData[0]);
-	m_positionData.push_back(m_positionData[1]);
-	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+
+
+	// Triangle ordering goes as follows for a square:
+	// xab, xbc, xcd, xda
+	// X is the center point and abcd are the corners.
+	for (int i = 0; i < numSides - 1; i++) {
+		m_indexData.push_back(0);
+		m_indexData.push_back(i+1);
+		m_indexData.push_back(i+2);
+	}
+	// Last triangle loops back to the beginning
+	m_indexData.push_back(0);
+	m_indexData.push_back(m_indexData.rbegin()[1]); // reverse order starting at 0 for last element, 1 for second-last
+	m_indexData.push_back(1);
+
+
+//	for (int i = 0; i < numSides; i++) {
+//		float angle = static_cast<float>(i) * radiansPerVertex;
+//		float x = radius * std::cos(angle);
+//		float y = radius * std::sin(angle);
+//		m_positionData.push_back(x);
+//		m_positionData.push_back(y);
+//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//
+//		// i is odd (Thus center vertex needs to be inserted)
+//		if (i & 1) {
+//			m_positionData.push_back(0.0f);
+//			m_positionData.push_back(0.0f);
+//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//
+//		}
+//
+//	}
+//	m_positionData.push_back(m_positionData[0]);
+//	m_positionData.push_back(m_positionData[1]);
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 
 	// Confirm that we have the right number of vertices
+	m_indexCount = static_cast<int>(m_indexData.size());
+	std::cout << "Index Count: " << m_indexCount << std::endl;
 	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
 	std::cout << "Vertex Count: " << m_positionData.size() / 2 << std::endl;
 	std::cout << "Color Count: " << m_colorData.size() / 3 << std::endl;
 	assert(m_vertexCount == static_cast<int>(m_colorData.size() / 3));
+
+	// Adjust index data to be a multiple of 4
+	while (m_indexData.size() % 4 != 0) {
+		m_indexData.push_back(0);
+	}
 
 	// Create position buffer
 	wgpu::BufferDescriptor bufferDesc{};
@@ -466,6 +512,14 @@ void Application::initGeometry() {
 
 	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
 
+
+	bufferDesc.size = m_indexData.size() * sizeof(uint16_t);
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+	m_indexBuffer = m_device.createBuffer(bufferDesc);
+
+	m_queue.writeBuffer(m_indexBuffer, 0, m_indexData.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+
+	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
 }
 

@@ -83,6 +83,8 @@ private:
 			"Unknown";
 #endif
 
+	std::vector<uint16_t> m_indexData;
+
 	// Vertex buffer
 	// There are 2 floats per vertex, one for x and one for y.
 	// But in the end this is just a bunch of floats to the eyes of the GPU,
@@ -121,6 +123,8 @@ private:
 
 	wgpu::Buffer m_positionBuffer = nullptr;
 	wgpu::Buffer m_colorBuffer = nullptr;
+	wgpu::Buffer m_indexBuffer = nullptr;
 	int m_vertexCount = 0;
+	int m_indexCount = 0;
 
 };

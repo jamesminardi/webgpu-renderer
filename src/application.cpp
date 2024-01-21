@@ -4,6 +4,8 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 
+#include "color.h"
+
 Application::Application() : m_window(nullptr) {
 	initWindowAndDevice();
 	initSwapChain();
@@ -414,6 +416,7 @@ void Application::initGeometry() {
 	m_indexData.clear();
 
 	const auto radiansPerVertex = static_cast<float>(2.0 * std::numbers::pi / numSides);
+	const auto degreesPerVertex = static_cast<float>(360.0 / numSides);
 	const float radius = 0.5f;
 
 
@@ -431,9 +434,12 @@ void Application::initGeometry() {
 		float y = radius * std::sin(angle);
 		m_positionData.push_back(x);
 		m_positionData.push_back(y);
-		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+		HSV hsv{};
+		hsv.h = static_cast<float>(i) * degreesPerVertex;
+		RGB rgb = hsv2RGB(hsv);
+		m_colorData.push_back(rgb.r);
+		m_colorData.push_back(rgb.g);
+		m_colorData.push_back(rgb.b);
 	}
 
 

@@ -127,4 +127,11 @@ private:
 	int m_vertexCount = 0;
 	int m_indexCount = 0;
 
+	glm::vec2 m_mousePos = glm::vec2(0.0f);
+	glm::vec2 m_mousePosNDC = glm::vec2(-1.0f, 1.0f);
+	glm::vec3 m_mouseColor = glm::vec3(1.0f);
+
+	float radius = 0.5f;
+	float maxMouseRadius = radius + 0.02f;
+
 };

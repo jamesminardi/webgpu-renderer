@@ -3,6 +3,7 @@
 #include <imgui.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
+#include <algorithm>
 
 #include "color.h"
 
@@ -422,9 +423,6 @@ void Application::initGeometry() {
 
 	m_positionData.push_back(0.0f);
 	m_positionData.push_back(0.0f);
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
 	m_colorData.push_back(1.0);
 	m_colorData.push_back(1.0);
 	m_colorData.push_back(1.0);
@@ -574,9 +572,6 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	ImGui::NewFrame();
 
 	// [...] Build our UI
-	static int counter = 0;
-	static bool show_demo_window = true;
-	static bool show_another_window = false;
 	static ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 	ImGui::Begin("Render");								// Create a window
@@ -590,13 +585,11 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	}
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
-	if (ImGui::Button("Button"))									// Buttons return true when clicked (most widgets return true when edited/activated)
-		counter++;
-	ImGui::SameLine();
-	ImGui::Text("counter = %d", counter);
 
-	ImGuiIO& io = ImGui::GetIO();
-	ImGui::Text("Application average %.3f ms/frame (%.1f FPS)", 1000.0f / io.Framerate, io.Framerate);
+	ImGui::Text("Mouse Position: (%.1f,%.1f)", m_mousePos.x, m_mousePos.y);
+	ImGui::Text("Mouse Position NDC: (%.1f,%.1f)", m_mousePosNDC.x, m_mousePosNDC.y);
+	ImGui::ColorButton("Mouse Color", ImVec4(m_mouseColor.r, m_mouseColor.g, m_mouseColor.b, 1.0f));
+
 	ImGui::End();
 
 	// Draw the UI
@@ -612,6 +605,9 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 // ---------------
 
 void Application::onResize([[maybe_unused]] int width, [[maybe_unused]] int height) {
+	if (width == 0 || height == 0) { // Used for minimizing window
+		return;
+	}
 	terminateSwapChain();
 	initSwapChain();
 }
@@ -625,6 +621,25 @@ void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused
 }
 
 void Application::onMouseClick([[maybe_unused]] Input::MouseButton button, [[maybe_unused]] Input::Action buttonAction, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
+	if (buttonAction == Input::Action::Press) {
+		// Check if mouse is within the circle
+		float distance = glm::length(m_window->windowCoordsToNDC(mousePos));
+
+		m_mousePos = mousePos;
+		m_mousePosNDC = m_window->windowCoordsToNDC(mousePos);
+
+		if (distance <= maxMouseRadius) {
+
+			HSV hsv{};
+			hsv.h = static_cast<float>(std::atan2(m_mousePosNDC.y, m_mousePosNDC.x) * 180.0 / std::numbers::pi);
+			// Set saturation to absolute distance from the center from 0 to 1
+			hsv.s = std::clamp(distance / radius, 0.0f, 1.0f);
+			hsv.v = 1.0f;
+			RGB rgb = hsv2RGB(hsv);
+			m_mouseColor = glm::vec3{rgb.r, rgb.g, rgb.b};
+		}
+	}
+
 
 }
 

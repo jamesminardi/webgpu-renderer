@@ -3,6 +3,11 @@
 #include "webgpu/webgpu.hpp"
 #include "GLFW/glfw3.h"
 #include "glm/glm.hpp"
+
+#include <imgui.h>
+#include <backends/imgui_impl_wgpu.h>
+#include <backends/imgui_impl_glfw.h>
+
 #include <string>
 
 
@@ -57,6 +62,11 @@ public:
 
 	glm::vec2 getMousePos() const;
 
+
+	//
+
+	// Convert window coordinates to normalized device coordinates
+	glm::vec2 windowCoordsToNDC(const glm::vec2 windowCoords) const;
 
 	// GLFW Event Handlers
 	// -------------------

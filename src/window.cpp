@@ -166,7 +166,8 @@ void Window::glfwMousePositionCallback(GLFWwindow* window, double x, double y) {
 
 void Window::glfwMouseButtonCallback(GLFWwindow *window, int button, int action, int mods) {
 	auto* app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-	if (app) {
+	ImGuiIO& io = ImGui::GetIO();
+	if (!io.WantCaptureMouse && app) {
 
 		auto buttonType = Input::MouseButton::Undefined;
 		switch (button) {
@@ -224,6 +225,11 @@ void Window::glfwScrollCallback(GLFWwindow *window, double xOffset, double yOffs
 	}
 }
 
+// Window coords to NDC coords where window coords is top left origin and NDC is center origin
+glm::vec2 Window::windowCoordsToNDC(const glm::vec2 windowCoords) const {
+	auto size = getSize();
+	return {windowCoords.x / (float)size.x * 2.0f - 1.0f, 1.0f - windowCoords.y / (float)size.y * 2.0f};
+}
 
 static Input::Key remapGlfwKeyCode(int key)
 {

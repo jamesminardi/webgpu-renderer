@@ -5,6 +5,7 @@
 #include <backends/imgui_impl_glfw.h>
 #include <algorithm>
 
+
 #include "color.h"
 
 Application::Application() : m_window(nullptr) {
@@ -47,6 +48,19 @@ void Application::onFrame() {
 
 	m_window->inputPollEvents();
 
+	// Update uniform buffer
+	m_uniforms.time = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+	// Only update the 1-st float of the buffer
+	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, time), &m_uniforms.time, sizeof(ShaderUniforms::time));
+
+	// Rotate model matrix
+	angle1 = m_uniforms.time;
+	R1 = glm::rotate(glm::mat4(1.0), std::fmod(angle1, glm::radians(360.0f)), glm::vec3(0.0, 1.0, 0.0));
+	m_uniforms.modelMatrix = R1 * S * T1;
+	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
+
+
+
 	// Get target texture view
 	auto nextTexture = m_swapChain.getCurrentTextureView();
 	if (!nextTexture) {
@@ -70,7 +84,38 @@ void Application::onFrame() {
 	renderPassDesc.label = "Render Pass";
 	renderPassDesc.colorAttachmentCount = 1;
 	renderPassDesc.colorAttachments = &renderPassColorAttachment;
+
+
+	// We now add a depth/stencil attachment:
+	wgpu::RenderPassDepthStencilAttachment depthStencilAttachment;
+	// The view of the depth texture
+	depthStencilAttachment.view = m_depthTextureView;
+
+	// The initial value of the depth buffer, meaning "far"
+	depthStencilAttachment.depthClearValue = 1.0f;
+	// Operation settings comparable to the color attachment
+	depthStencilAttachment.depthLoadOp = wgpu::LoadOp::Clear;
+	depthStencilAttachment.depthStoreOp = wgpu::StoreOp::Store;
+	// we could turn off writing to the depth buffer globally here
+	depthStencilAttachment.depthReadOnly = false;
+
+	// Stencil setup, mandatory but unused
+	depthStencilAttachment.stencilClearValue = 0;
+#ifdef WEBGPU_BACKEND_WGPU
+	depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Clear;
+	depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Store;
+#else
+	depthStencilAttachment.stencilLoadOp = wgpu::LoadOp::Undefined;
+	depthStencilAttachment.stencilStoreOp = wgpu::StoreOp::Undefined;
+#endif
+	depthStencilAttachment.stencilReadOnly = true;
+
+
+//	renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
 	renderPassDesc.depthStencilAttachment = nullptr;
+
+
+
 	renderPassDesc.timestampWriteCount = 0;
 	renderPassDesc.timestampWrites = nullptr;
 
@@ -85,6 +130,8 @@ void Application::onFrame() {
 	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_colorData.size() * sizeof(float));
 
 	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, m_indexData.size() * sizeof(uint16_t));
+
+	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
@@ -168,13 +215,13 @@ void Application::initWindowAndDevice() {
 	// Maximum size of a buffer is 6 vertices of 2 float each
 	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
 	// Maximum stride between 2 consecutive vertices in the vertex buffer
-	requiredLimits.limits.maxVertexBufferArrayStride = 5 * sizeof(float); // Needs to be 5 for imgui
+	requiredLimits.limits.maxVertexBufferArrayStride = 6 * sizeof(float); // Needs to be 5 for imgui
 
 	// Must be set even if we do not use storage or uniform buffers for now
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
 	requiredLimits.limits.maxInterStageShaderComponents = 6; // 6 used by imgui, 3 by us
-	requiredLimits.limits.maxBindGroups = 2; // Required to be at least 2 for ImGui
+	requiredLimits.limits.maxBindGroups = 3; // Required to be at least 2 for ImGui
 
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
 	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
@@ -286,10 +333,37 @@ void Application::terminateSwapChain() {
 
 void Application::initDepthBuffer() {
 
+
+	// Create the depth texture
+	wgpu::TextureDescriptor depthTextureDesc;
+	depthTextureDesc.dimension = wgpu::TextureDimension::_2D;
+	depthTextureDesc.format = m_depthTextureFormat;
+	depthTextureDesc.mipLevelCount = 1;
+	depthTextureDesc.sampleCount = 1;
+	depthTextureDesc.size = { 640, 480, 1 };
+	depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
+	depthTextureDesc.viewFormatCount = 1;
+	depthTextureDesc.viewFormats = (WGPUTextureFormat*)&m_depthTextureFormat;
+	m_depthTexture = m_device.createTexture(depthTextureDesc);
+	std::cout << "Depth texture: " << m_depthTexture << std::endl;
+
+	// Create the view of the depth texture manipulated by the rasterizer
+	wgpu::TextureViewDescriptor depthTextureViewDesc;
+	depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
+	depthTextureViewDesc.baseArrayLayer = 0;
+	depthTextureViewDesc.arrayLayerCount = 1;
+	depthTextureViewDesc.baseMipLevel = 0;
+	depthTextureViewDesc.mipLevelCount = 1;
+	depthTextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
+	depthTextureViewDesc.format = m_depthTextureFormat;
+	m_depthTextureView = m_depthTexture.createView(depthTextureViewDesc);
+	std::cout << "Depth texture view: " << m_depthTextureView << std::endl;
 }
 
 void Application::terminateDepthBuffer() {
-
+	m_depthTextureView.release();
+	m_depthTexture.destroy();
+	m_depthTexture.release();
 }
 
 void Application::initRenderPipeline() {
@@ -310,12 +384,12 @@ void Application::initRenderPipeline() {
 	// Position attribute
 	wgpu::VertexAttribute positionAttrib;
 	positionAttrib.shaderLocation = 0; // Corresponds to @location(...)
-	positionAttrib.format = wgpu::VertexFormat::Float32x2; // size of position, Means vec2<f32> in the shader
+	positionAttrib.format = wgpu::VertexFormat::Float32x3; // size of position, Means vec2<f32> in the shader
 	positionAttrib.offset = 0; // Index of the first element
 	// Build vertex buffer layout
 	vertexBufferLayouts[0].attributeCount = 1;
 	vertexBufferLayouts[0].attributes = &positionAttrib;
-	vertexBufferLayouts[0].arrayStride = 2 * sizeof(float); // size of position, since only color attribs in this buffer
+	vertexBufferLayouts[0].arrayStride = 3 * sizeof(float); // size of position, since only color attribs in this buffer
 	vertexBufferLayouts[0].stepMode = wgpu::VertexStepMode::Vertex;
 
 
@@ -373,18 +447,45 @@ void Application::initRenderPipeline() {
 	fragmentState.targets = &colorTargetState;
 
 	// Depth & Stencil
-	pipelineDesc.depthStencil = nullptr; // No depth/stencil for now
+	// We set up a depth buffer state for the render pipeline
+	wgpu::DepthStencilState depthStencilState = wgpu::Default;
+	// Keep a fragment only if its depth is lower than the previously blended one
+	depthStencilState.depthCompare = wgpu::CompareFunction::Less;
+	// Each time a fragment is blended into the target, we update the value of the Z-buffer
+	depthStencilState.depthWriteEnabled = true;
+	// Store the format in a variable as later parts of the code depend on it
+	wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
+	depthStencilState.format = depthTextureFormat;
+	// Deactivate the stencil alltogether
+	depthStencilState.stencilReadMask = 0;
+	depthStencilState.stencilWriteMask = 0;
+
+//	pipelineDesc.depthStencil = &depthStencilState;
+	pipelineDesc.depthStencil = nullptr;
 
 	// Multisampling
 	pipelineDesc.multisample.count = 1; // Samples per pixel
 	pipelineDesc.multisample.mask = 0xFFFFFFFFu; // Default value for mask (all bits on)
 	pipelineDesc.multisample.alphaToCoverageEnabled = false; // Irrelevant for count=1
 
+	// Create binding layout (don't forget to = Default)
+	wgpu::BindGroupLayoutEntry bindingLayout = wgpu::Default;
+	bindingLayout.binding = 0;
+	bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
+	bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
+	bindingLayout.buffer.minBindingSize = sizeof(ShaderUniforms);
+
+	// Create a bind group layout
+	wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
+	bindGroupLayoutDesc.entryCount = 1;
+	bindGroupLayoutDesc.entries = &bindingLayout;
+	m_bindGroupLayout = m_device.createBindGroupLayout(bindGroupLayoutDesc);
+
 	// Pipeline Layout
 	wgpu::PipelineLayoutDescriptor layoutDesc{};
 	layoutDesc.label = "Pipeline Layout";
-	layoutDesc.bindGroupLayoutCount = 0;
-	layoutDesc.bindGroupLayouts = nullptr;
+	layoutDesc.bindGroupLayoutCount = 1;
+	layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&m_bindGroupLayout;
 	pipelineDesc.layout = m_device.createPipelineLayout(layoutDesc);
 
 	m_pipeline = m_device.createRenderPipeline(pipelineDesc);
@@ -397,6 +498,7 @@ void Application::initRenderPipeline() {
 void Application::terminateRenderPipeline() {
 	m_pipeline.release();
 	m_shaderModule.release();
+	m_bindGroupLayout.release();
 }
 
 void Application::initTexture() {
@@ -420,73 +522,86 @@ void Application::initGeometry() {
 	const auto degreesPerVertex = static_cast<float>(360.0 / numSides);
 	const float radius = 0.5f;
 
+	m_positionData = {
+			-0.5, -0.5,  0.5,
+			 0.5, -0.5,  0.5,
+			-0.5,  0.5,  0.5,
+			 0.5,  0.5,  0.5,
+			-0.5, -0.5, -0.5,
+			 0.5, -0.5, -0.5,
+			-0.5,  0.5, -0.5,
+			 0.5,  0.5, -0.5
+	   };
 
-	m_positionData.push_back(0.0f);
-	m_positionData.push_back(0.0f);
-	m_colorData.push_back(1.0);
-	m_colorData.push_back(1.0);
-	m_colorData.push_back(1.0);
-	for (int i = 0; i < numSides; i++) {
-		float angle = static_cast<float>(i) * radiansPerVertex;
-		float x = radius * std::cos(angle);
-		float y = radius * std::sin(angle);
-		m_positionData.push_back(x);
-		m_positionData.push_back(y);
-		HSV hsv{};
-		hsv.h = static_cast<float>(i) * degreesPerVertex;
-		RGB rgb = hsv2RGB(hsv);
-		m_colorData.push_back(rgb.r);
-		m_colorData.push_back(rgb.g);
-		m_colorData.push_back(rgb.b);
-	}
+	m_colorData = {
+			1, 1, 1,
+			1, 1, 0,
+			1, 0, 1,
+			1, 0, 0,
+			0, 1, 1,
+			0, 1, 0,
+			0, 0, 1,
+			0, 0, 0
+	};
 
+	m_indexData = {
+			//Top
+			2, 6, 7,
+			2, 3, 7,
+			//Bottom
+			0, 4, 5,
+			0, 1, 5,
+			//Left
+			0, 2, 6,
+			0, 4, 6,
+			//Right
+			1, 3, 7,
+			1, 5, 7,
+			//Front
+			0, 2, 3,
+			0, 1, 3,
+			//Back
+			4, 6, 7,
+			4, 5, 7
+	};
 
-	// Triangle ordering goes as follows for a square:
-	// xab, xbc, xcd, xda
-	// X is the center point and abcd are the corners.
-	for (int i = 0; i < numSides - 1; i++) {
-		m_indexData.push_back(0);
-		m_indexData.push_back(i+1);
-		m_indexData.push_back(i+2);
-	}
-	// Last triangle loops back to the beginning
-	m_indexData.push_back(0);
-	m_indexData.push_back(m_indexData.rbegin()[1]); // reverse order starting at 0 for last element, 1 for second-last
-	m_indexData.push_back(1);
-
-
+//	m_positionData.push_back(0.0f);
+//	m_positionData.push_back(0.0f);
+//	m_colorData.push_back(1.0);
+//	m_colorData.push_back(1.0);
+//	m_colorData.push_back(1.0);
 //	for (int i = 0; i < numSides; i++) {
 //		float angle = static_cast<float>(i) * radiansPerVertex;
 //		float x = radius * std::cos(angle);
 //		float y = radius * std::sin(angle);
 //		m_positionData.push_back(x);
 //		m_positionData.push_back(y);
-//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//		m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//
-//		// i is odd (Thus center vertex needs to be inserted)
-//		if (i & 1) {
-//			m_positionData.push_back(0.0f);
-//			m_positionData.push_back(0.0f);
-//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//			m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//
-//		}
-//
+//		HSV hsv{};
+//		hsv.h = static_cast<float>(i) * degreesPerVertex;
+//		RGB rgb = hsv2RGB(hsv);
+//		m_colorData.push_back(rgb.r);
+//		m_colorData.push_back(rgb.g);
+//		m_colorData.push_back(rgb.b);
 //	}
-//	m_positionData.push_back(m_positionData[0]);
-//	m_positionData.push_back(m_positionData[1]);
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
-//	m_colorData.push_back(static_cast<float>(std::rand()) / static_cast<float>(RAND_MAX));
+//	// Triangle ordering goes as follows for a square:
+//	// xab, xbc, xcd, xda
+//	// X is the center point and abcd are the corners.
+//	for (int i = 0; i < numSides - 1; i++) {
+//		m_indexData.push_back(0);
+//		m_indexData.push_back(i+1);
+//		m_indexData.push_back(i+2);
+//	}
+//	// Last triangle loops back to the beginning
+//	m_indexData.push_back(0);
+//	m_indexData.push_back(m_indexData.rbegin()[1]); // reverse order starting at 0 for last element, 1 for second-last
+//	m_indexData.push_back(1);
+
 
 	// Confirm that we have the right number of vertices
 	m_indexCount = static_cast<int>(m_indexData.size());
 	std::cout << "Index Count: " << m_indexCount << std::endl;
-	m_vertexCount = static_cast<int>(m_positionData.size() / 2);
-	std::cout << "Vertex Count: " << m_positionData.size() / 2 << std::endl;
+	m_vertexCount = static_cast<int>(m_positionData.size() / 3);
+	std::cout << "Vertex Count: " << m_positionData.size() / 3 << std::endl;
 	std::cout << "Color Count: " << m_colorData.size() / 3 << std::endl;
 	assert(m_vertexCount == static_cast<int>(m_colorData.size() / 3));
 
@@ -535,21 +650,89 @@ void Application::terminateGeometry() {
 
 void Application::initUniforms() {
 
+	std::cout << "Creating uniforms..." << std::endl;
+
+	// Create uniform buffer
+	wgpu::BufferDescriptor bufferDesc{};
+	bufferDesc.size = sizeof(ShaderUniforms);
+	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+	bufferDesc.mappedAtCreation = false;
+	m_uniformBuffer = m_device.createBuffer(bufferDesc);
+
+	ShaderUniforms uniforms{};
+
+//	focalPoint = {0.0, 0.0, -2.0};
+
+	// Rotate the object
+	angle1 = 2.0f; // arbitrary time
+
+	// Rotate the view point
+	angle2 = 3.0f * std::numbers::pi / 4.0f;
+
+	ratio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
+	focalLength = 2.0;
+	near = 0.01f;
+	far = 100.0f;
+	divider = 1 / (focalLength * (far - near));
+
+
+	// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
+
+	// Model, translates the object relative to the world
+	S = glm::scale(S, glm::vec3(0.5f));
+	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
+	R1 = glm::mat4(1.0);
+	uniforms.modelMatrix = T1 * R1 * S;
+
+
+	// View
+	// LookAt uses the camera world position, rather than the manual translation which is the world relative to camera.
+	glm::mat4 lookAt = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
+	uniforms.viewMatrix =  lookAt;
+
+	// Projection
+	fov = 2 * glm::atan(1 / focalLength);
+	uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
+
+
+	uniforms.time = 1.0f;
+	uniforms.color = { 0.5f, 0.6f, 1.0f, 1.0f };
+	m_queue.writeBuffer(m_uniformBuffer, 0, &uniforms, sizeof(ShaderUniforms));
 }
 
 void Application::terminateUniforms() {
-
+	m_uniformBuffer.release();
 }
 
 void Application::initBindGroup() {
 
+	std::cout << "Creating bind group..." << std::endl;
+
+	// Create a binding
+	wgpu::BindGroupEntry binding{};
+	binding.binding = 0;
+	binding.buffer = m_uniformBuffer;
+	binding.offset = 0;
+	binding.size = sizeof(ShaderUniforms);
+
+	// A bind group contains one or multiple bindings
+	wgpu::BindGroupDescriptor bindGroupDesc;
+	bindGroupDesc.layout = m_bindGroupLayout;
+	bindGroupDesc.entryCount = 1;
+	bindGroupDesc.entries = &binding;
+	m_bindGroup = m_device.createBindGroup(bindGroupDesc);
+
+
 }
 
 void Application::terminateBindGroup() {
-
+	m_bindGroup.release();
 }
 
 void Application::initGui() {
+
+	std::cout << "Creating gui..." << std::endl;
+
 	// Setup Dear ImGui context
 	IMGUI_CHECKVERSION();
 	ImGui::CreateContext();
@@ -580,15 +763,15 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 //	ImGui::Checkbox("Demo Window", &show_demo_window);			// Edit bools storing our window open/close state
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
-	if (ImGui::SliderInt("sides", &numSides, 3, 50)) {		// Edit 1 int using a slider
-		initGeometry();
-	}
+//	if (ImGui::SliderInt("sides", &numSides, 3, 50)) {		// Edit 1 int using a slider
+//		initGeometry();
+//	}
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
 
-	ImGui::Text("Mouse Position: (%.1f,%.1f)", m_mousePos.x, m_mousePos.y);
-	ImGui::Text("Mouse Position NDC: (%.1f,%.1f)", m_mousePosNDC.x, m_mousePosNDC.y);
-	ImGui::ColorButton("Mouse Color", ImVec4(m_mouseColor.r, m_mouseColor.g, m_mouseColor.b, 1.0f));
+//	ImGui::Text("Mouse Position: (%.1f,%.1f)", m_mousePos.x, m_mousePos.y);
+//	ImGui::Text("Mouse Position NDC: (%.1f,%.1f)", m_mousePosNDC.x, m_mousePosNDC.y);
+//	ImGui::ColorButton("Mouse Color", ImVec4(m_mouseColor.r, m_mouseColor.g, m_mouseColor.b, 1.0f));
 
 	ImGui::End();
 
@@ -610,6 +793,7 @@ void Application::onResize([[maybe_unused]] int width, [[maybe_unused]] int heig
 	}
 	terminateSwapChain();
 	initSwapChain();
+	ratio = static_cast<float>(width) / static_cast<float>(height);
 }
 
 void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::Action buttonAction,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {

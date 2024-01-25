@@ -3,6 +3,8 @@
 #include <numbers>
 #include <webgpu/webgpu.hpp>
 #include <glm/glm.hpp>
+#include <glm/gtc/matrix_transform.hpp>
+#include <array>
 #include "window.h"
 #include "input.h"
 #include "shader.h"
@@ -17,6 +19,19 @@ struct VertexAttributes {
 	glm::vec3 normal;
 	glm::vec3 color;
 	glm::vec2 uv;
+};
+
+/*
+ * The same structure as in the shader, replicated in C++
+ */
+struct ShaderUniforms {
+	// We add transform matrices
+	glm::mat4x4 projectionMatrix;
+	glm::mat4x4 viewMatrix;
+	glm::mat4x4 modelMatrix;
+	std::array<float, 4> color;
+	float time;
+	float _pad[3];
 };
 
 
@@ -117,13 +132,27 @@ private:
 	// Swap Chain
 	wgpu::SwapChain m_swapChain = nullptr;
 
+	// Depth Buffer
+	wgpu::TextureFormat m_depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
+	wgpu::Texture m_depthTexture = nullptr;
+	wgpu::TextureView m_depthTextureView = nullptr;
+
 	// Render Pipeline
 	wgpu::ShaderModule m_shaderModule = nullptr;
+	wgpu::BindGroupLayoutDescriptor m_bindGroupLayoutDesc{};
+	wgpu::BindGroup m_bindGroup = nullptr;
+	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
 	wgpu::RenderPipeline m_pipeline = nullptr;
+
+	// Texture
+	wgpu::Sampler m_sampler = nullptr;
+	wgpu::Texture m_texture = nullptr;
+	wgpu::TextureView m_textureView = nullptr;
 
 	wgpu::Buffer m_positionBuffer = nullptr;
 	wgpu::Buffer m_colorBuffer = nullptr;
 	wgpu::Buffer m_indexBuffer = nullptr;
+	wgpu::Buffer m_uniformBuffer = nullptr;
 	int m_vertexCount = 0;
 	int m_indexCount = 0;
 
@@ -133,5 +162,34 @@ private:
 
 	float radius = 0.5f;
 	float maxMouseRadius = radius + 0.02f;
+
+
+
+
+
+	ShaderUniforms m_uniforms{};
+
+	glm::vec3 focalPoint;
+
+	// Rotate the object
+	float angle1; // arbitrary time
+
+	// Rotate the view point
+	float angle2;
+
+	float ratio;
+	float focalLength;
+	float near;
+	float far;
+	float divider;
+
+	glm::mat4 S = glm::mat4(1.0);
+	glm::mat4 T1 = glm::mat4(1.0);
+	glm::mat4 R1 = glm::mat4(1.0);
+
+	glm::mat4 R2 = glm::mat4(1.0);
+	glm::mat4 T2 = glm::mat4(1.0);
+
+	float fov;
 
 };

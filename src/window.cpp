@@ -132,7 +132,8 @@ void Window::glfwKeyCallback(GLFWwindow* window, int key, [[maybe_unused]] int s
 	}
 
 	auto* app = reinterpret_cast<Application*>(glfwGetWindowUserPointer(window));
-	if (app) {
+	ImGuiIO& io = ImGui::GetIO();
+	if (!io.WantCaptureKeyboard && app) {
 
 		const bool ctrlKey = bool(mods & GLFW_MOD_CONTROL);
 		const bool shiftKey = bool(mods & GLFW_MOD_SHIFT);

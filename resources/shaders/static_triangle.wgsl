@@ -40,14 +40,16 @@ struct ShaderUniforms {
 @vertex
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
-	out.position = uShaderUniforms.projectionMatrix * uShaderUniforms.viewMatrix * uShaderUniforms.modelMatrix * vec4f(in.position.xy, in.position.z * 0.5 + 0.5,  1.0);
+	out.position = uShaderUniforms.projectionMatrix * uShaderUniforms.viewMatrix * uShaderUniforms.modelMatrix * vec4f(in.position.xyz,  1.0);
 	out.color = in.color;
 	return out;
 }
 
 @fragment
 fn fs_main(in: VertexOutput) -> @location(0) vec4f {
-//	let color = in.color * uShaderUniforms.color.rgb;
+
+    // Gamma Correction for WGPU, Dawn is fine without it.
+//	let color = in.color;
 //	// Gamma-correction
 //	let corrected_color = pow(color, vec3f(2.2));
 //	return vec4f(corrected_color, uShaderUniforms.color.a);

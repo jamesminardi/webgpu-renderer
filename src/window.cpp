@@ -202,7 +202,7 @@ void Window::glfwMouseButtonCallback(GLFWwindow *window, int button, int action,
 		} else if (action == GLFW_REPEAT) {
 			buttonAction = Input::Action::Repeat;
 		}
-		app->onMouseClick(buttonType, buttonAction, {(float)xPos, (float)yPos}, ctrlKey, shiftKey, altKey);
+		app->onMouseButton(buttonType, buttonAction, {(float)xPos, (float)yPos}, ctrlKey, shiftKey, altKey);
 	}
 }
 

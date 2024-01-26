@@ -54,11 +54,10 @@ void Application::onFrame() {
 	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, time), &m_uniforms.time, sizeof(ShaderUniforms::time));
 
 	// Rotate model matrix
-	angle1 = m_uniforms.time;
-	R1 = glm::rotate(glm::mat4(1.0), std::fmod(angle1, glm::radians(360.0f)), glm::vec3(0.0, 1.0, 0.0));
-	m_uniforms.modelMatrix = R1 * S * T1;
-	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
-
+//	angle1 = m_uniforms.time;
+//	R1 = glm::rotate(glm::mat4(1.0), std::fmod(angle1, glm::radians(360.0f)), glm::vec3(0.0, 1.0, 0.0));
+//	m_uniforms.modelMatrix = R1 * S * T1;
+//	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
 
 	// Get target texture view
@@ -684,11 +683,7 @@ void Application::initUniforms() {
 	R1 = glm::mat4(1.0);
 	uniforms.modelMatrix = T1 * R1 * S;
 
-
-	// View
-	// LookAt uses the camera world position, rather than the manual translation which is the world relative to camera.
-	glm::mat4 lookAt = glm::lookAt(glm::vec3(1.0f, 1.0f, 1.0f), glm::vec3(0.0f, 0.0f, 0.0f), glm::vec3(0.0f, 1.0f, 0.0f));
-	uniforms.viewMatrix =  lookAt;
+	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
 
 	// Projection
 	fov = 2 * glm::atan(1 / focalLength);
@@ -801,32 +796,45 @@ void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::
 }
 
 void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
-
+	if (m_camera.dragState.active) {
+		glm::vec2 currentMouse = mousePos;
+		glm::vec2 delta = (currentMouse - m_camera.dragState.startMouse) * m_camera.dragState.sensitivity;
+		m_camera.rotation = m_camera.dragState.startRotation + delta;
+		// Clamp to avoid going too far when orbitting up/down
+		m_camera.rotation.y = glm::clamp(m_camera.rotation.y, -(float)std::numbers::pi / 2 + 1e-5f, (float)std::numbers::pi / 2 - 1e-5f);
+		updateViewMatrix();
+	}
 }
 
-void Application::onMouseClick([[maybe_unused]] Input::MouseButton button, [[maybe_unused]] Input::Action buttonAction, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
-	if (buttonAction == Input::Action::Press) {
-		// Check if mouse is within the circle
-		float distance = glm::length(m_window->windowCoordsToNDC(mousePos));
-
-		m_mousePos = mousePos;
-		m_mousePosNDC = m_window->windowCoordsToNDC(mousePos);
-
-		if (distance <= maxMouseRadius) {
-
-			HSV hsv{};
-			hsv.h = static_cast<float>(std::atan2(m_mousePosNDC.y, m_mousePosNDC.x) * 180.0 / std::numbers::pi);
-			// Set saturation to absolute distance from the center from 0 to 1
-			hsv.s = std::clamp(distance / radius, 0.0f, 1.0f);
-			hsv.v = 1.0f;
-			RGB rgb = hsv2RGB(hsv);
-			m_mouseColor = glm::vec3{rgb.r, rgb.g, rgb.b};
+void Application::onMouseButton(Input::MouseButton button, Input::Action buttonAction, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
+	if (button == Input::MouseButton::Left) {
+		switch (buttonAction) {
+			case Input::Action::Press:
+				m_camera.dragState.active = true;
+				m_camera.dragState.startMouse = mousePos;
+				m_camera.dragState.startRotation = m_camera.rotation;
+				break;
+			case Input::Action::Release:
+				m_camera.dragState.active = false;
+				break;
+			default:
+				break;
 		}
 	}
-
-
 }
 
-void Application::onScroll([[maybe_unused]] glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
+void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
+	m_camera.zoom += m_camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
+	m_camera.zoom = glm::clamp(m_camera.zoom, -2.0f, 2.0f);
+	updateViewMatrix();
+}
 
+void Application::updateViewMatrix() {
+	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
+	m_queue.writeBuffer(
+			m_uniformBuffer,
+			offsetof(ShaderUniforms, viewMatrix),
+			&m_uniforms.viewMatrix,
+			sizeof(ShaderUniforms::viewMatrix)
+	);
 }

@@ -4,7 +4,8 @@ add_executable(app main.cpp
         window.cpp
         application.cpp
         implementations.cpp
-        shader.cpp)
+        shader.cpp
+        camera.cpp)
 
 set_target_properties(app PROPERTIES
         CXX_STANDARD 20

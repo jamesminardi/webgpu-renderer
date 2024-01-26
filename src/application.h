@@ -8,6 +8,7 @@
 #include "window.h"
 #include "input.h"
 #include "shader.h"
+#include "camera.h"
 
 /*
  * A structure that describes the data layout in the vertex buffer,
@@ -54,7 +55,7 @@ public:
 	void onResize(int width, int height);
 	void onKey([[maybe_unused]] [[maybe_unused]] Input::Key key, Input::Action buttonAction, bool ctrlKey, bool shiftKey, bool altKey);
 	void onMouseMove(glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
-	void onMouseClick(Input::MouseButton button, Input::Action buttonAction, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
+	void onMouseButton(Input::MouseButton button, Input::Action buttonAction, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
 	void onScroll(glm::vec2 scrollOffset, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
 
 private:
@@ -87,6 +88,8 @@ private:
 	void updateGui(wgpu::RenderPassEncoder renderPass); // called in onFrame
 
 
+	void updateViewMatrix();
+
 private:
 
 	const std::string m_platformStr =
@@ -113,6 +116,8 @@ private:
 
 
 	std::unique_ptr<Window> m_window;
+
+	Camera m_camera;
 
 	// Window and Device
 	wgpu::Instance m_instance = nullptr;

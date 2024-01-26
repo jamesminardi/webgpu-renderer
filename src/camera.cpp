@@ -5,6 +5,7 @@ Camera::Camera() {
 }
 
 glm::mat4 Camera::updateViewMatrix() {
+
 	float cX = sin(rotation.x);
 	float sX = cos(rotation.x);
 	float cY = cos(rotation.y);

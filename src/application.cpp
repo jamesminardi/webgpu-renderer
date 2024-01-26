@@ -110,8 +110,8 @@ void Application::onFrame() {
 	depthStencilAttachment.stencilReadOnly = true;
 
 
-//	renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
-	renderPassDesc.depthStencilAttachment = nullptr;
+	renderPassDesc.depthStencilAttachment = &depthStencilAttachment;
+//	renderPassDesc.depthStencilAttachment = nullptr;
 
 
 
@@ -334,7 +334,7 @@ void Application::initDepthBuffer() {
 
 
 	// Create the depth texture
-	wgpu::TextureDescriptor depthTextureDesc;
+	wgpu::TextureDescriptor depthTextureDesc{};
 	depthTextureDesc.dimension = wgpu::TextureDimension::_2D;
 	depthTextureDesc.format = m_depthTextureFormat;
 	depthTextureDesc.mipLevelCount = 1;
@@ -347,7 +347,8 @@ void Application::initDepthBuffer() {
 	std::cout << "Depth texture: " << m_depthTexture << std::endl;
 
 	// Create the view of the depth texture manipulated by the rasterizer
-	wgpu::TextureViewDescriptor depthTextureViewDesc;
+	wgpu::TextureViewDescriptor depthTextureViewDesc{};
+	depthTextureViewDesc.label = "Depth Texture View";
 	depthTextureViewDesc.aspect = wgpu::TextureAspect::DepthOnly;
 	depthTextureViewDesc.baseArrayLayer = 0;
 	depthTextureViewDesc.arrayLayerCount = 1;
@@ -453,14 +454,12 @@ void Application::initRenderPipeline() {
 	// Each time a fragment is blended into the target, we update the value of the Z-buffer
 	depthStencilState.depthWriteEnabled = true;
 	// Store the format in a variable as later parts of the code depend on it
-	wgpu::TextureFormat depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
-	depthStencilState.format = depthTextureFormat;
-	// Deactivate the stencil alltogether
+	depthStencilState.format = m_depthTextureFormat;
+	// Deactivate the stencil altogether
 	depthStencilState.stencilReadMask = 0;
 	depthStencilState.stencilWriteMask = 0;
 
-//	pipelineDesc.depthStencil = &depthStencilState;
-	pipelineDesc.depthStencil = nullptr;
+	pipelineDesc.depthStencil = &depthStencilState;
 
 	// Multisampling
 	pipelineDesc.multisample.count = 1; // Samples per pixel
@@ -485,6 +484,7 @@ void Application::initRenderPipeline() {
 	layoutDesc.label = "Pipeline Layout";
 	layoutDesc.bindGroupLayoutCount = 1;
 	layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&m_bindGroupLayout;
+
 	pipelineDesc.layout = m_device.createPipelineLayout(layoutDesc);
 
 	m_pipeline = m_device.createRenderPipeline(pipelineDesc);
@@ -658,8 +658,6 @@ void Application::initUniforms() {
 	bufferDesc.mappedAtCreation = false;
 	m_uniformBuffer = m_device.createBuffer(bufferDesc);
 
-	ShaderUniforms uniforms{};
-
 //	focalPoint = {0.0, 0.0, -2.0};
 
 	// Rotate the object
@@ -681,18 +679,18 @@ void Application::initUniforms() {
 	S = glm::scale(S, glm::vec3(0.5f));
 	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
 	R1 = glm::mat4(1.0);
-	uniforms.modelMatrix = T1 * R1 * S;
+	m_uniforms.modelMatrix = T1 * R1 * S;
 
 	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
 
 	// Projection
 	fov = 2 * glm::atan(1 / focalLength);
-	uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
+	m_uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
 
 
-	uniforms.time = 1.0f;
-	uniforms.color = { 0.5f, 0.6f, 1.0f, 1.0f };
-	m_queue.writeBuffer(m_uniformBuffer, 0, &uniforms, sizeof(ShaderUniforms));
+	m_uniforms.time = 1.0f;
+	m_uniforms.color = { 0.5f, 0.6f, 1.0f, 1.0f };
+	m_queue.writeBuffer(m_uniformBuffer, 0, &m_uniforms, sizeof(ShaderUniforms));
 }
 
 void Application::terminateUniforms() {
@@ -735,7 +733,7 @@ void Application::initGui() {
 
 	// Setup Platform/Renderer backends
 	ImGui_ImplGlfw_InitForOther(m_window->handle, true);
-	ImGui_ImplWGPU_Init(m_device, 3, m_swapChainFormat); // m_depthTextureFormat
+	ImGui_ImplWGPU_Init(m_device, 3, m_swapChainFormat, m_depthTextureFormat);
 }
 
 void Application::terminateGui() {

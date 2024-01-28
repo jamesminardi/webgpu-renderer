@@ -25,23 +25,13 @@ public:
 
 	glm::mat4 updateViewMatrix();
 
-//	glm::vec3 getPosition() const;
-//	glm::vec3 getDirection() const;
-//	glm::vec3 getUp() const;
-//	glm::vec3 getRight() const;
-//
-//	float getAspectRatio() const;
-//	float getFov() const;
-//	float getNear() const;
-//	float getFar() const;
 
-
-	// x is the rotation of the camera around the global vertical axis, affected by mouse.x movement
-	// y is the rotation of the camera around its local horizontal axis, affected by mouse.y movement
 	// in radians
 	glm::vec2 rotation = glm::vec2(0.0f, glm::radians(45.0f));
 
 	DragState dragState;
+
+	glm::vec3 position;
 
 	// Zoom is the position of the camera along its local forward axis, affected by scroll
 	float zoom = 0.0f;

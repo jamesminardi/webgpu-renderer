@@ -59,6 +59,20 @@ void Application::onFrame() {
 //	m_uniforms.modelMatrix = R1 * S * T1;
 //	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
+	if (m_wireFrame != m_terrain.wireFrame)
+	{
+		terminateGeometry();
+		terminateRenderPipeline();
+		initRenderPipeline();
+		initGeometry();
+	}
+
+	if (m_terrain.needs_update)
+	{
+		terminateGeometry();
+		initGeometry();
+		m_terrain.needs_update = false;
+	}
 
 	// Get target texture view
 	auto nextTexture = m_swapChain.getCurrentTextureView();
@@ -124,18 +138,18 @@ void Application::onFrame() {
 	renderPass.setPipeline(m_pipeline);
 
 	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_positionBuffer, 0, m_positionData.size() * sizeof(float));
+	renderPass.setVertexBuffer(0, m_positionBuffer, 0, m_terrain.mesh.vertices.size() * sizeof(float));
 
-	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_colorData.size() * sizeof(float));
+	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_terrain.mesh.colors.size() * sizeof(float));
 
-	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, m_indexData.size() * sizeof(uint16_t));
+	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, m_terrain.mesh.indices.size() * sizeof(uint16_t));
 
 	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
 //	renderPass.draw(m_vertexCount,1,0,0);
-	renderPass.drawIndexed(m_indexCount, 1, 0, 0, 0);
+	renderPass.drawIndexed(m_terrain.mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -339,7 +353,7 @@ void Application::initDepthBuffer() {
 	depthTextureDesc.format = m_depthTextureFormat;
 	depthTextureDesc.mipLevelCount = 1;
 	depthTextureDesc.sampleCount = 1;
-	depthTextureDesc.size = { 640, 480, 1 };
+	depthTextureDesc.size = { static_cast<uint32_t>(m_window->getWidth()), static_cast<uint32_t>(m_window->getHeight()), 1 };
 	depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
 	depthTextureDesc.viewFormatCount = 1;
 	depthTextureDesc.viewFormats = (WGPUTextureFormat*)&m_depthTextureFormat;
@@ -415,7 +429,12 @@ void Application::initRenderPipeline() {
 	pipelineDesc.vertex.constants = nullptr;
 
 	// Primitive Assembly & Rasterization
-	pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
+
+	if (m_wireFrame) {
+		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList; // Treat each 3 vertices as a triangle
+	} else {
+		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
+	}
 	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined; // Vertices considered sequentially
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW; // Counter-clockwise vertices are front-facing
 	pipelineDesc.primitive.cullMode = wgpu::CullMode::None; // Do not cull any triangles for debugging
@@ -509,133 +528,45 @@ void Application::terminateTexture() {
 }
 
 
+
+
 void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
-	m_positionData.clear();
-	m_colorData.clear();
-	m_indexData.clear();
+//	m_positionData = generateGridVertices(100);
+//	m_indexData = generateGridIndices(100);
+//	m_colorData = generateGridColors(100);
 
-	const auto radiansPerVertex = static_cast<float>(2.0 * std::numbers::pi / numSides);
-	const auto degreesPerVertex = static_cast<float>(360.0 / numSides);
-	const float radius = 0.5f;
-
-	m_positionData = {
-			-0.5, -0.5,  0.5,
-			 0.5, -0.5,  0.5,
-			-0.5,  0.5,  0.5,
-			 0.5,  0.5,  0.5,
-			-0.5, -0.5, -0.5,
-			 0.5, -0.5, -0.5,
-			-0.5,  0.5, -0.5,
-			 0.5,  0.5, -0.5
-	   };
-
-	m_colorData = {
-			1, 1, 1,
-			1, 1, 0,
-			1, 0, 1,
-			1, 0, 0,
-			0, 1, 1,
-			0, 1, 0,
-			0, 0, 1,
-			0, 0, 0
-	};
-
-	m_indexData = {
-			//Top
-			2, 6, 7,
-			2, 3, 7,
-			//Bottom
-			0, 4, 5,
-			0, 1, 5,
-			//Left
-			0, 2, 6,
-			0, 4, 6,
-			//Right
-			1, 3, 7,
-			1, 5, 7,
-			//Front
-			0, 2, 3,
-			0, 1, 3,
-			//Back
-			4, 6, 7,
-			4, 5, 7
-	};
-
-//	m_positionData.push_back(0.0f);
-//	m_positionData.push_back(0.0f);
-//	m_colorData.push_back(1.0);
-//	m_colorData.push_back(1.0);
-//	m_colorData.push_back(1.0);
-//	for (int i = 0; i < numSides; i++) {
-//		float angle = static_cast<float>(i) * radiansPerVertex;
-//		float x = radius * std::cos(angle);
-//		float y = radius * std::sin(angle);
-//		m_positionData.push_back(x);
-//		m_positionData.push_back(y);
-//		HSV hsv{};
-//		hsv.h = static_cast<float>(i) * degreesPerVertex;
-//		RGB rgb = hsv2RGB(hsv);
-//		m_colorData.push_back(rgb.r);
-//		m_colorData.push_back(rgb.g);
-//		m_colorData.push_back(rgb.b);
-//	}
-//	// Triangle ordering goes as follows for a square:
-//	// xab, xbc, xcd, xda
-//	// X is the center point and abcd are the corners.
-//	for (int i = 0; i < numSides - 1; i++) {
-//		m_indexData.push_back(0);
-//		m_indexData.push_back(i+1);
-//		m_indexData.push_back(i+2);
-//	}
-//	// Last triangle loops back to the beginning
-//	m_indexData.push_back(0);
-//	m_indexData.push_back(m_indexData.rbegin()[1]); // reverse order starting at 0 for last element, 1 for second-last
-//	m_indexData.push_back(1);
-
-
-	// Confirm that we have the right number of vertices
-	m_indexCount = static_cast<int>(m_indexData.size());
-	std::cout << "Index Count: " << m_indexCount << std::endl;
-	m_vertexCount = static_cast<int>(m_positionData.size() / 3);
-	std::cout << "Vertex Count: " << m_positionData.size() / 3 << std::endl;
-	std::cout << "Color Count: " << m_colorData.size() / 3 << std::endl;
-	assert(m_vertexCount == static_cast<int>(m_colorData.size() / 3));
-
-	// Adjust index data to be a multiple of 4
-	while (m_indexData.size() % 4 != 0) {
-		m_indexData.push_back(0);
-	}
+	m_terrain.generateSquareMesh(m_size, m_scale, m_wireFrame);
 
 	// Create position buffer
 	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.size = m_positionData.size() * sizeof(float);
+	bufferDesc.size = m_terrain.mesh.vertices.size() * sizeof(float);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
 	m_positionBuffer = m_device.createBuffer(bufferDesc);
 
 	// Upload pos data to position buffer
-	m_queue.writeBuffer(m_positionBuffer, 0, m_positionData.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_positionBuffer, 0, m_terrain.mesh.vertices.data(), bufferDesc.size);
 
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
 
 	// Create color buffer
-	bufferDesc.size = m_colorData.size() * sizeof(float);
+	bufferDesc.size = m_terrain.mesh.colors.size() * sizeof(float);
 	m_colorBuffer = m_device.createBuffer(bufferDesc);
 
 	// Upload color data to color buffer
-	m_queue.writeBuffer(m_colorBuffer, 0, m_colorData.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_colorBuffer, 0, m_terrain.mesh.colors.data(), bufferDesc.size);
 
 	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
 
 
-	bufferDesc.size = m_indexData.size() * sizeof(uint16_t);
+	bufferDesc.size = m_terrain.mesh.indices.size() * sizeof(uint16_t);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_indexBuffer = m_device.createBuffer(bufferDesc);
 
-	m_queue.writeBuffer(m_indexBuffer, 0, m_indexData.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+	m_queue.writeBuffer(m_indexBuffer, 0, m_terrain.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
 
 	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
@@ -643,8 +574,11 @@ void Application::initGeometry() {
 
 void Application::terminateGeometry() {
 	m_positionBuffer.destroy();
+	m_indexBuffer.destroy();
+	m_colorBuffer.destroy();
 	m_positionBuffer.release();
-	m_vertexCount = 0;
+	m_indexBuffer.release();
+	m_colorBuffer.release();
 }
 
 void Application::initUniforms() {
@@ -669,16 +603,16 @@ void Application::initUniforms() {
 	ratio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
 	focalLength = 2.0;
 	near = 0.01f;
-	far = 100.0f;
+	far = 1000.0f;
 	divider = 1 / (focalLength * (far - near));
 
 
 	// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
 
 	// Model, translates the object relative to the world
-	S = glm::scale(S, glm::vec3(0.5f));
-	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
-	R1 = glm::mat4(1.0);
+//	S = glm::scale(S, glm::vec3(0.5f));
+//	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
+//	R1 = glm::mat4(1.0);
 	m_uniforms.modelMatrix = T1 * R1 * S;
 
 	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
@@ -752,13 +686,24 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 
 	ImGui::Begin("Render");								// Create a window
 
-//	ImGui::Text("This is some useful text.");					// Display some text (you can use a format strings too)
-//	ImGui::Checkbox("Demo Window", &show_demo_window);			// Edit bools storing our window open/close state
+	ImGui::Text("Camera:");					// Display some text (you can use a format strings too)
+	// Text the camera rotation
+	ImGui::Text("Rotation: (%.1f, %.1f)", m_camera.rotation.x, m_camera.rotation.y);
+	// Text the camera position
+	ImGui::Text("Position: (%.1f, %.1f, %.1f)", m_camera.position.x, m_camera.position.y, m_camera.position.z);
+
+
+
+	ImGui::Checkbox("WireFrame", &m_wireFrame);            // Edit bools storing our window open/close state
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
-//	if (ImGui::SliderInt("sides", &numSides, 3, 50)) {		// Edit 1 int using a slider
-//		initGeometry();
-//	}
+	if (ImGui::SliderInt("sides", &m_size, 2, 50)) {		// Edit 1 int using a slider
+		m_terrain.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
+		m_terrain.needs_update = true;
+	}
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
 
@@ -784,8 +729,10 @@ void Application::onResize([[maybe_unused]] int width, [[maybe_unused]] int heig
 	if (width == 0 || height == 0) { // Used for minimizing window
 		return;
 	}
+	terminateDepthBuffer();
 	terminateSwapChain();
 	initSwapChain();
+	initDepthBuffer();
 	ratio = static_cast<float>(width) / static_cast<float>(height);
 }
 
@@ -796,10 +743,15 @@ void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::
 void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
 	if (m_camera.dragState.active) {
 		glm::vec2 currentMouse = mousePos;
-		glm::vec2 delta = (currentMouse - m_camera.dragState.startMouse) * m_camera.dragState.sensitivity;
-		m_camera.rotation = m_camera.dragState.startRotation + delta;
+
+		float deltaX = (currentMouse.x - m_camera.dragState.startMouse.x) * m_camera.dragState.sensitivity;
+		float deltaY = (currentMouse.y - m_camera.dragState.startMouse.y) * m_camera.dragState.sensitivity;
+		m_camera.rotation.x = m_camera.dragState.startRotation.x - deltaX;
+		m_camera.rotation.y = m_camera.dragState.startRotation.y - deltaY;
+
 		// Clamp to avoid going too far when orbitting up/down
-		m_camera.rotation.y = glm::clamp(m_camera.rotation.y, -(float)std::numbers::pi / 2 + 1e-5f, (float)std::numbers::pi / 2 - 1e-5f);
+		m_camera.rotation.y = glm::clamp(m_camera.rotation.y, glm::radians(0.1f), glm::radians(179.9f));
+
 		updateViewMatrix();
 	}
 }
@@ -823,7 +775,7 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 
 void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
 	m_camera.zoom += m_camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
-	m_camera.zoom = glm::clamp(m_camera.zoom, -2.0f, 2.0f);
+	m_camera.zoom = glm::clamp(m_camera.zoom, -5.0f, 2.0f);
 	updateViewMatrix();
 }
 

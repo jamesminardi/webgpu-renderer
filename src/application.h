@@ -9,6 +9,7 @@
 #include "input.h"
 #include "shader.h"
 #include "camera.h"
+#include "terrain.h"
 
 /*
  * A structure that describes the data layout in the vertex buffer,
@@ -101,18 +102,13 @@ private:
 			"Unknown";
 #endif
 
-	std::vector<uint16_t> m_indexData;
 
-	// Vertex buffer
-	// There are 2 floats per vertex, one for x and one for y.
-	// But in the end this is just a bunch of floats to the eyes of the GPU,
-	// the *layout* will tell how to interpret this.
-	std::vector<float> m_positionData;
+	int m_size = 4;
+	float m_scale = 1.0f;
+	bool m_wireFrame = false;
 
-	// Color buffer, rgb
-	std::vector<float> m_colorData;
 
-	int numSides = 3;
+	Terrain m_terrain;
 
 
 	std::unique_ptr<Window> m_window;
@@ -158,8 +154,6 @@ private:
 	wgpu::Buffer m_colorBuffer = nullptr;
 	wgpu::Buffer m_indexBuffer = nullptr;
 	wgpu::Buffer m_uniformBuffer = nullptr;
-	int m_vertexCount = 0;
-	int m_indexCount = 0;
 
 	glm::vec2 m_mousePos = glm::vec2(0.0f);
 	glm::vec2 m_mousePosNDC = glm::vec2(-1.0f, 1.0f);

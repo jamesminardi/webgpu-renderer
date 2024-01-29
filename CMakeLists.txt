@@ -1,6 +1,6 @@
 
 cmake_minimum_required(VERSION 3.21)
-project(cross-platform-webgpu)
+project(webgpu-renderer)
 
 include(cmake/utils.cmake)
 include(cmake/imgui.cmake)
@@ -22,7 +22,7 @@ add_subdirectory(src)
 if(DEV_MODE)
     # In dev mode, we load resources from the source tree, so that when we
     # dynamically edit resources (like shaders), these are correctly
-    # versionned.
+    # versioned.
     target_compile_definitions(app PRIVATE
             RESOURCE_DIR="${CMAKE_CURRENT_SOURCE_DIR}/resources"
     )

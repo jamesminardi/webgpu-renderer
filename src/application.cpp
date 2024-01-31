@@ -692,9 +692,9 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	// Text the camera position
 	ImGui::Text("Position: (%.1f, %.1f, %.1f)", m_camera.position.x, m_camera.position.y, m_camera.position.z);
 
+	// Text the camera zoom
+	ImGui::Text("Zoom: %.1f", m_camera.zoom);
 
-
-	ImGui::Checkbox("WireFrame", &m_wireFrame);            // Edit bools storing our window open/close state
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
 	if (ImGui::SliderInt("sides", &m_size, 2, 50)) {		// Edit 1 int using a slider
@@ -704,6 +704,10 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
 		m_terrain.needs_update = true;
 	}
+
+
+	ImGui::Checkbox("WireFrame", &m_wireFrame);            // Edit bools storing our window open/close state
+
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
 

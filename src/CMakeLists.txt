@@ -7,6 +7,8 @@ add_executable(app main.cpp
         shader.cpp
         camera.cpp)
 
+
+
 set_target_properties(app PROPERTIES
         CXX_STANDARD 20
         CXX_EXTENSIONS OFF

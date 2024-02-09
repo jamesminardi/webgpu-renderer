@@ -5,6 +5,7 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
+#include <stb_image_write.h>
 
 
 
@@ -34,6 +35,166 @@
 //	return t;
 //}
 
+class Noise {
+public:
+	static float hash(glm::vec2 uv) {
+		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
+	}
+
+	Noise (int seed = 0) {
+		std::srand(0);
+		for (int i = 0; i < tableSize; i++) {
+			for (int j = 0; j < tableSize; j++) {
+				table[i][j] = std::rand() / float(RAND_MAX);
+			}
+		}
+	}
+
+	float eval(glm::vec2 uv) {
+		int xInt = glm::floor(uv.x);
+		int yInt = glm::floor(uv.y);
+
+		// Smoothstep
+//		float xU = xFract * xFract * (3.0f - 2.0f * xFract);
+//		float yU = yFract * yFract * (3.0f - 2.0f * yFract);
+
+		// Hash values
+		float tl = table[xInt][yInt];
+		float bl = table[(xInt + 1)%tableSize][yInt];
+		float tr = table[xInt][(yInt + 1)%tableSize];
+		float br = table[(xInt + 1)%tableSize][(yInt + 1)%tableSize];
+
+		// Interpolate
+		glm::vec2 f = glm::fract(uv);
+		glm::vec2 u = f * f * (3.0f - 2.0f * f);
+		float left = glm::mix(tl, bl, u.x);
+		float right = glm::mix(tr, br, u.x);
+		return glm::mix(left, right, u.y);
+	}
+
+	void generate() {
+
+		int stepsPerUnit = resolution / tableSize;
+
+		for (int row = 0; row < resolution; row++) {
+			for (int col = 0; col < resolution; col++) {
+				float x = col / float(stepsPerUnit);
+				float y = row / float(stepsPerUnit);
+				noiseMap[row][col] = eval(glm::vec2(x, y));
+			}
+		}
+	}
+
+	void output() {
+
+		for (int row = 0; row < resolution; row++) {
+			for (int col = 0; col < resolution; col++) {
+				bitMap[row][col] = noiseMap[row][col] * 255;
+			}
+		}
+
+		if(stbi_write_bmp("noise.bmp", Noise::resolution, Noise::resolution, 1, bitMap) == 0) {
+			std::cerr << "Failed to write noise to file" << std::endl;
+		} else {
+			std::cout << "Wrote noise to file" << std::endl;
+		}
+
+	}
+
+	void outputRandomNoise() {
+
+//		int stepsPerUnit = resolution / tableSize;
+//
+//		for (int i = 0; i < resolution; i++) {
+//			for (int j = 0; j < resolution; j++) {
+//				float x = j / float(stepsPerUnit);
+//				float y = i / float(stepsPerUnit);
+//				noiseMap[j][i] = table);
+//			}
+//		}
+//
+//		for (int i = 0; i < resolution; i++) {
+//			for (int j = 0; j < resolution; j++) {
+//				bitMap[i][j] = noiseMap[i][j] * 255;
+//			}
+//		}
+//		if(stbi_write_bmp("noise.bmp", Noise::tableSize, Noise::tableSize, 1, bitMap) == 0) {
+//			std::cerr << "Failed to write noise to file" << std::endl;
+//		} else {
+//			std::cout << "Wrote noise to file" << std::endl;
+//		}
+	}
+
+
+	static const int tableSize = 32;
+	static const int resolution = 256;
+	float noiseMap[resolution][resolution]{};
+	uint8_t bitMap[resolution][resolution]{};
+	float table[tableSize][tableSize]{};
+
+};
+
+
+//class ValueNoise1D {
+//public:
+//	ValueNoise1D(int seed = 0){
+//		std::srand(seed);
+//		for (int i = 0; i < MaxVertices; i++) {
+//			r[i] = std::rand() / float(RAND_MAX);
+//		}
+//	}
+//
+//
+//	float cosineRemap(const float &a, const float &b, const float &t)
+//	{
+//		assert(t >= 0 && t <= 1);      //t should be in the range [0:1]
+//		float tRemap = (1 - std::cos(t * std::numbers::pi)) * 0.5;  //remap t input value
+//		return glm::mix(a, b, tRemap);     //return interpolation of a-b using new t
+//	}
+//
+//	float smoothstepRemap(const float &a, const float &b, const float &t)
+//	{
+//		float tRemapSmoothstep = t * t * (3 - 2 * t);
+//		return glm::mix(a, b, tRemapSmoothstep);
+//	}
+//
+//	float smoothEval2(const float &x) {
+//		int xMin = static_cast<int>(x);
+//		assert(xMin <= MaxVertices - 1);
+//		float t = x - xMin;
+//
+//		return smoothstepRemap(r[xMin], r[xMin + 1], t);
+//	}
+//
+//	float linearEval1(const float &x) {
+//		float i = glm::floor(x);
+//		float c = glm::ceil(x);
+//		float f = glm::fract(x);
+//
+//
+//		// Hash values
+//		float iv = hash({i, 0});
+//		float cv = hash({c, 0});
+//
+//		// Interpolate
+//		return std::lerp(iv, cv, f);
+//	}
+//
+//	// Same as linearEval1 but uses the precomputed hash value array
+//	float linearEval2(const float &x) {
+//		int min = glm::floor(x);
+//		int ceil = glm::ceil(x);
+//		assert(min <= MaxVertices - 1);
+//		float t = glm::fract(x);
+//
+//		return glm::mix(r[min], r[ceil + 1], t);
+//	}
+//
+//	static const int MaxVertices = 256;
+//	float r[MaxVertices];
+//
+//};
+
 
 class Mesh  {
 public:
@@ -58,6 +219,9 @@ public:
 
 	}
 
+	/*
+	 * Generates a random value between 0 and 1 based on the input vector
+	 */
 	static float hash(glm::vec2 uv) {
 		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
 	}

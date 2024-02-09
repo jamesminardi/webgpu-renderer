@@ -37,6 +37,9 @@ endif()
 
 target_link_libraries(app PRIVATE glfw webgpu glfw3webgpu glm imgui)
 
+target_include_directories(app
+        PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/external/stb
+)
 
 #target_copy_resources(app resources)
 

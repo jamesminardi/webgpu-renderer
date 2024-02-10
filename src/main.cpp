@@ -4,6 +4,7 @@
 #include "application.h"
 
 #include "terrain.h"
+#include "noise/noise.h"
 
 
 int main (int, char**) {

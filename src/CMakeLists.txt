@@ -5,7 +5,8 @@ add_executable(app main.cpp
         application.cpp
         implementations.cpp
         shader.cpp
-        camera.cpp)
+        camera.cpp
+        noise/noise.cpp)
 
 
 

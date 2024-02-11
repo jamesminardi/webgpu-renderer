@@ -13,9 +13,10 @@ int main (int, char**) {
 
 	Noise noise(0);
 
-	noise.generate();
+	noise.generate(1.0f, {0, 0});
 
 	noise.output();
+//	noise.outputColor();
 
 //	noise.outputRandomNoise();
 

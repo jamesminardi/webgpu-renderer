@@ -18,15 +18,6 @@ struct WindowConfig {
 	bool resizable = false;
 };
 
-// Callbacks for user to implement. These are called by the window class.
-struct Callbacks {
-	void (*onResize)(GLFWwindow* window, int width, int height);
-//	void (*onKey)(GLFWwindow* window, int key, int scancode, int action, int mods);
-//	void (*onMouse)(GLFWwindow* window, int button, int action, int mods);
-//	void (*onMouseMove)(GLFWwindow* window, double x, double y);
-//	void (*onScroll)(GLFWwindow* window, double x, double y);
-};
-
 /*
  * Window class that wraps GLFW.
  *

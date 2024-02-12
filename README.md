@@ -1,4 +1,4 @@
-# WebGPU C++ Renderer
+# WebGPU C++ Terrain Renderer
 
 > [!WARNING]
 > Work in Progress
@@ -7,19 +7,37 @@
 
 ## About
 
-This is a personal WebGPU C++ template to allow cross-platform compatibility based off of the [WebGPU C++ Guide](https://eliemichel.github.io/LearnWebGPU).
+This is a WIP in-depth exploration of terrain generation that I am developing in C++ using the [WebGPU](https://www.w3.org/TR/webgpu) graphics API.
+
+## Roadmap / Topics
+1. Camera Controller (zoom, click to drag, etc.) :white_check_mark:
+2. Dev GUI :white_check_mark:
+3. Generate plane meshes of configurable sizes :white_check_mark:
+4. Adjust mesh using noise as a heightmap
+5. Explore Value, Perlin, Simplex, and Cubic noise varieties. :white_check_mark:
+6. Sample multiple noises at once (Fractional Brownian Motion) :white_check_mark:
+7. Adjust noises individually including scale, amplitude, etc.
+8. Color map the terrain based on height, steepness, etc.
+9. Dynamically load and unload chunks of terrain
+10. Dynamically adjust level of detail a quadtree, clip maps, etc.
+11. Cull the terrain using frustum and occlusionS
+12. Post-processing effects, atmosphere, lighting, skybox, etc.
+15. Vegetation
+16. Water
+
 
 ### Dependencies
 - [`GLFW`](https://github.com/glfw/glfw): Window creation
+- [`GLFW3 WebGPU`](https://github.com/eliemichel/WebGPU-Cpp): Wrapper for GLFW to support cross-platform WebGPU
 - [`WEBGPU`](https://github.com/eliemichel/WebGPU-distribution): WebGPU distribution
   - [`WGPU-Native`](https://github.com/gfx-rs/wgpu-native): Native interface to [`wgpu`](https://github.com/gfx-rs/wgpu) Rust library developed for Firefox
   - [`Dawn`](https://dawn.googlesource.com/dawn): Google's WebGPU implementation developed for Chrome in C++
 - [`WebGPU-Cpp`](https://github.com/eliemichel/WebGPU-Cpp): WebGPU C++ Wrapper
-- [`GLFW3 WebGPU`](https://github.com/eliemichel/WebGPU-Cpp): Wrapper for GLFW to support cross-platform WebGPU
 - [`ImGui`](https://github.com/ocornut/imgui): Lightweight dev gui
 - [`GLM`](https://github.com/g-truc/glm): Math library
+- [`STB`](): Lightweight image loading/saving (Included)
 
-_All of these are included through git submodules._
+_All of these are available through git submodules. Instructions are below._
 
 ---
 
@@ -80,7 +98,7 @@ Reload your CMake project.
 ## Project Structure
 - `build`: Generated build files and binary application.
 - `data`: Screenshots and other data.
-- `docs`: Personal notes and documentation for learning.
+- `docs`: Personal notes,documentation, and examples.
 - `external`: External dependencies (e.g. git submodules).
 - `resources`: Project resources such as textures, sounds, music, etc.
 - `src`: Source code

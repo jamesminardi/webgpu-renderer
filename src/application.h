@@ -52,7 +52,7 @@ public:
 	}
 
 	// Modifier parameters are true if they are pressed while onKey is called
-	// TODO: Just have implementation call for modifier keys and mouse position using window get methods instead of passing in
+	// TODO: Just have implementation call for modifier keys and mouse position using window get methods instead of passing in?
 	void onResize(int width, int height);
 	void onKey([[maybe_unused]] [[maybe_unused]] Input::Key key, Input::Action buttonAction, bool ctrlKey, bool shiftKey, bool altKey);
 	void onMouseMove(glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);

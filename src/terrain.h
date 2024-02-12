@@ -6,97 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
 #include <stb_image_write.h>
-
-
-
-//
-//float fbmExpensive(glm::vec2 x, float H) {
-//	float t = 0.0f;
-//	for (int i = 0; i < 3; i++) {
-//		float f = pow(2.0f, float(i));
-//		float a = pow(f, -H);
-//		t += a * valueNoise(x * f);
-//	}
-//	return t;
-//}
-//
-//float fbm(glm::vec2 x) {
-//	float G = 0.5f;
-//	float f = 1.0f;
-//	float a = 1.0f;
-//	float t = 0.0f;
-//
-//	// Each octave is twice the frequency of the previous one
-//	for (int i = 0; i < 3; i++) {
-//		t += a * valueNoise(x * f);
-//		f *= 2.0f;
-//		a *= G;
-//	}
-//	return t;
-//}
-
-
-
-
-//class ValueNoise1D {
-//public:
-//	ValueNoise1D(int seed = 0){
-//		std::srand(seed);
-//		for (int i = 0; i < MaxVertices; i++) {
-//			r[i] = std::rand() / float(RAND_MAX);
-//		}
-//	}
-//
-//
-//	float cosineRemap(const float &a, const float &b, const float &t)
-//	{
-//		assert(t >= 0 && t <= 1);      //t should be in the range [0:1]
-//		float tRemap = (1 - std::cos(t * std::numbers::pi)) * 0.5;  //remap t input value
-//		return glm::mix(a, b, tRemap);     //return interpolation of a-b using new t
-//	}
-//
-//	float smoothstepRemap(const float &a, const float &b, const float &t)
-//	{
-//		float tRemapSmoothstep = t * t * (3 - 2 * t);
-//		return glm::mix(a, b, tRemapSmoothstep);
-//	}
-//
-//	float smoothEval2(const float &x) {
-//		int xMin = static_cast<int>(x);
-//		assert(xMin <= MaxVertices - 1);
-//		float t = x - xMin;
-//
-//		return smoothstepRemap(r[xMin], r[xMin + 1], t);
-//	}
-//
-//	float linearEval1(const float &x) {
-//		float i = glm::floor(x);
-//		float c = glm::ceil(x);
-//		float f = glm::fract(x);
-//
-//
-//		// Hash values
-//		float iv = hash({i, 0});
-//		float cv = hash({c, 0});
-//
-//		// Interpolate
-//		return std::lerp(iv, cv, f);
-//	}
-//
-//	// Same as linearEval1 but uses the precomputed hash value array
-//	float linearEval2(const float &x) {
-//		int min = glm::floor(x);
-//		int ceil = glm::ceil(x);
-//		assert(min <= MaxVertices - 1);
-//		float t = glm::fract(x);
-//
-//		return glm::mix(r[min], r[ceil + 1], t);
-//	}
-//
-//	static const int MaxVertices = 256;
-//	float r[MaxVertices];
-//
-//};
+#include "noise/noise.h"
 
 
 class Mesh  {
@@ -122,9 +32,7 @@ public:
 
 	}
 
-	/*
-	 * Generates a random value between 0 and 1 based on the input vector
-	 */
+
 	static float hash(glm::vec2 uv) {
 		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
 	}
@@ -156,6 +64,9 @@ public:
 
 	// Generates vertices from left to right, bottom to top
 	static std::vector<float> generateGridVertices(int numCells, float scale) {
+
+		Noise noise(0);
+
 		std::vector<float> vertices;
 		float halfSize = numCells / 2.0f;
 
@@ -163,7 +74,9 @@ public:
 			for (int j = 0; j <= numCells; j++) {
 				float x = (j - halfSize) * scale;
 				float z = (i - halfSize) * scale;
-				float y = valueNoise(glm::vec2(i, j)) * 5.0f;
+
+				// TODO: Account for terrain resolution vs noise resolution. (Look at Generate() function)
+				float y = noise.evalBicubic(glm::vec2(i, j));
 
 				vertices.push_back(x);
 				vertices.push_back(y);

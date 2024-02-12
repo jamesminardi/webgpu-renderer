@@ -9,8 +9,6 @@
 
 int main (int, char**) {
 
-	// int stbi_write_bmp(char const *filename, int w, int h, int comp, const void *data);
-
 	Noise noise(0);
 
 	noise.generate(1.0f, {0, 0});
@@ -18,24 +16,7 @@ int main (int, char**) {
 	noise.output();
 //	noise.outputColor();
 
-//	noise.outputRandomNoise();
-
-//	ValueNoise1D valueNoise1D(0);
-//
-//	static const int numSteps = 50;
-//
-//	for (int i = 0; i < numSteps; ++i) {
-//		float x = i / float(numSteps - 1) * 10;
-//		std::cout << "Noise at " << x << ": " << valueNoise1D.linearEval2(x) << std::endl;
-//	}
-//	std::cout << std::endl;
-//
-//
-//	for (int i = 0; i < numSteps; ++i) {
-//		float x = i / float(numSteps - 1) * 10;
-//		std::cout << "Noise at " << x << ": " << valueNoise1D.smoothEval2(x) << std::endl;
-//	}
-
+// Terrain App
 //	try {
 //		auto app = Application();
 //

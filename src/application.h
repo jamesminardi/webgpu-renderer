@@ -103,7 +103,7 @@ private:
 #endif
 
 
-	int m_size = 4;
+	int m_size = 64;
 	float m_scale = 1.0f;
 	bool m_wireFrame = false;
 

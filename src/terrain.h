@@ -33,34 +33,34 @@ public:
 	}
 
 
-	static float hash(glm::vec2 uv) {
-		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
-	}
-
-	static float valueNoise(glm::vec2 x) {
-		glm::vec2 i = glm::floor(x);
-		glm::vec2 f = glm::fract(x);
-
-		// Smoothstep
-		glm::vec2 u = f * f * (3.0f - 2.0f * f);
-
-		// Hash coordinates
-		glm::vec2 a = glm::vec2(i.x, i.y);
-		glm::vec2 b = glm::vec2(i.x + 1.0f, i.y);
-		glm::vec2 c = glm::vec2(i.x, i.y + 1.0f);
-		glm::vec2 d = glm::vec2(i.x + 1.0f, i.y + 1.0f);
-
-		// Hash values
-		float v1 = hash(a);
-		float v2 = hash(b);
-		float v3 = hash(c);
-		float v4 = hash(d);
-
-		// Interpolate
-		float x1 = glm::mix(v1, v2, u.x);
-		float x2 = glm::mix(v3, v4, u.x);
-		return glm::mix(x1, x2, u.y);
-	}
+//	static float hash(glm::vec2 uv) {
+//		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
+//	}
+//
+//	static float valueNoise(glm::vec2 x) {
+//		glm::vec2 i = glm::floor(x);
+//		glm::vec2 f = glm::fract(x);
+//
+//		// Smoothstep
+//		glm::vec2 u = f * f * (3.0f - 2.0f * f);
+//
+//		// Hash coordinates
+//		glm::vec2 a = glm::vec2(i.x, i.y);
+//		glm::vec2 b = glm::vec2(i.x + 1.0f, i.y);
+//		glm::vec2 c = glm::vec2(i.x, i.y + 1.0f);
+//		glm::vec2 d = glm::vec2(i.x + 1.0f, i.y + 1.0f);
+//
+//		// Hash values
+//		float v1 = hash(a);
+//		float v2 = hash(b);
+//		float v3 = hash(c);
+//		float v4 = hash(d);
+//
+//		// Interpolate
+//		float x1 = glm::mix(v1, v2, u.x);
+//		float x2 = glm::mix(v3, v4, u.x);
+//		return glm::mix(x1, x2, u.y);
+//	}
 
 	// Generates vertices from left to right, bottom to top
 	static std::vector<float> generateGridVertices(int numCells, float scale) {
@@ -70,13 +70,16 @@ public:
 		std::vector<float> vertices;
 		float halfSize = numCells / 2.0f;
 
+		int stepsPerUnit = numCells / noise.tableSize;
+
 		for (int i = 0; i <= numCells; i++) {
 			for (int j = 0; j <= numCells; j++) {
 				float x = (j - halfSize) * scale;
 				float z = (i - halfSize) * scale;
 
-				// TODO: Account for terrain resolution vs noise resolution. (Look at Generate() function)
-				float y = noise.evalBicubic(glm::vec2(i, j));
+				float xAdjusted = x / float(stepsPerUnit);
+				float zAdjusted = z / float(stepsPerUnit);
+				float y = noise.evalBicubic(glm::vec2(xAdjusted, zAdjusted)) * 5.0f;
 
 				vertices.push_back(x);
 				vertices.push_back(y);

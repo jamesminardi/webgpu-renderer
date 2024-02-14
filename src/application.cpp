@@ -697,7 +697,7 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
-	if (ImGui::SliderInt("sides", &m_size, 2, 50)) {		// Edit 1 int using a slider
+	if (ImGui::SliderInt("sides", &m_size, 16, 512)) {		// Edit 1 int using a slider
 		m_terrain.needs_update = true;
 	}
 

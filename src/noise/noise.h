@@ -9,6 +9,97 @@
 #include <cmath>
 
 
+class Hash {
+public:
+
+	// Hashing
+	static const int PrimeX = 501125321;
+	static const int PrimeY = 1136930381;
+	static const int PrimeZ = 1720413743;
+
+	int hash1(int seed, int xPrimed, int yPrimed) {
+
+		int hash = seed ^ xPrimed ^ yPrimed;
+
+		hash *= 0x27d4eb2d;
+		return hash;
+	}
+
+	int hash2(int seed, int xPrimed, int yPrimed) {
+		int a = 1103515245;
+		int b = 12345;
+		int n = xPrimed + yPrimed * 57;
+		return (a * (n + seed) + b) & 0x7fffffff;
+	}
+
+	float hash3(int seed, int xPrimed, int yPrimed) {
+		int hash = seed ^ xPrimed ^ yPrimed;
+		hash *= 0x27d4eb2d;
+		return glm::fract(hash * 43758.5453f);
+	}
+
+	float valCoord(int seed, int xPrimed, int yPrimed)
+	{
+		int hash = hash1(seed, xPrimed, yPrimed);
+
+		hash *= hash;
+		hash ^= hash << 19;
+		return hash * (1 / 2147483648.0f);
+	}
+
+	// Evaluate cubic interpolation at a given point.
+	float evalBicubic2(float x, float y) {
+
+		float xFrac = glm::fract(x);
+		float yFrac = glm::fract(y);
+
+		// Generate the primed coordinates for the 16 surrounding points.
+		int x1 = glm::floor(x) * PrimeX;
+		int y1 = glm::floor(y) * PrimeY;
+		int x0 = x1 - PrimeX;
+		int y0 = y1 - PrimeY;
+		int x2 = x1 + PrimeX;
+		int y2 = y1 + PrimeY;
+		int x3 = x1 + (int)((long)PrimeX << 1); // Advance two steps
+		int y3 = y1 + (int)((long)PrimeY << 1);
+
+		// First Row
+		float c00 = valCoord(0, x0, y0);
+		float c10 = valCoord(0, x1, y0);
+		float c20 = valCoord(0, x2, y0);
+		float c30 = valCoord(0, x3, y0);
+
+		// Second Row
+		float c01 = valCoord(0, x0, y1);
+		float c11 = valCoord(0, x1, y1);
+		float c21 = valCoord(0, x2, y1);
+		float c31 = valCoord(0, x3, y1);
+
+		// Third Row
+		float c02 = valCoord(0, x0, y2);
+		float c12 = valCoord(0, x1, y2);
+		float c22 = valCoord(0, x2, y2);
+		float c32 = valCoord(0, x3, y2);
+
+		// Fourth Row
+		float c03 = valCoord(0, x0, y3);
+		float c13 = valCoord(0, x1, y3);
+		float c23 = valCoord(0, x2, y3);
+		float c33 = valCoord(0, x3, y3);
+
+		float r0 = cubicInterpolate(c00, c10, c20, c30, xFrac);
+		float r1 = cubicInterpolate(c01, c11, c21, c31, xFrac);
+		float r2 = cubicInterpolate(c02, c12, c22, c32, xFrac);
+		float r3 = cubicInterpolate(c03, c13, c23, c33, xFrac);
+
+
+		// Todo: Do we need to clamp? What is the range of the noise?
+		// Todo: How does the 1.5f factor affect the noise?
+		return cubicInterpolate(r0, r1, r2, r3, yFrac) * (1 / (1.5f * 1.5f));
+
+	}
+
+
 
 class Noise {
 public:

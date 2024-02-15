@@ -9,6 +9,70 @@
 #include "noise/noise.h"
 
 
+
+
+
+class Chunk {
+public:
+
+	Chunk() = default;
+
+	void load(Noise noise, glm::ivec2 chunkPos) {
+		heightData.resize(size * size);
+		chunkSeed = noise.m_seed * chunkPos.x + chunkPos.y;
+		generate(noise);
+	}
+
+	void unload() {
+		heightData.clear();
+	}
+
+	void generate(Noise noise) {
+		for (int row = 0; row < size; row++) {
+
+			int worldPosX = row + (pos.x * size);
+			for (int col = 0; col < size; col++) {
+
+				int worldPosY = col + (pos.y * size);
+				float h = Noise::eval(noise.m_seed, glm::vec2({worldPosX, worldPosY}));
+				heightData[row * size + col] = h;
+			}
+		}
+	}
+
+	static const uint8_t size = 16; // Number of vertices per side of the chunk
+	int chunkSeed = 0;
+	glm::ivec2 pos{};
+	std::vector<float> heightData;
+
+
+};
+
+class World {
+public:
+	World() = default;
+
+	void load(Noise noise, int worldSize = 8) : size(worldSize) {
+		chunks.resize(worldSize * worldSize);
+		for (int row = 0; row < size; row++) {
+			for (int col = 0; col < size; col++) {
+				chunks[row * size + col].load(noise, {row, col});
+			}
+		}
+	}
+
+	void unload() {
+		for (auto& chunk : chunks) {
+			chunk.unload();
+		}
+	}
+
+	int size; // Number of chunks per side of the world
+	std::vector<Chunk> chunks;
+};
+
+
+
 class Mesh  {
 public:
 	std::vector<float> vertices;
@@ -65,7 +129,7 @@ public:
 	// Generates vertices from left to right, bottom to top
 	static std::vector<float> generateGridVertices(int numCells, float scale) {
 
-		Noise noise(0);
+		NoiseTable noise(0);
 
 		std::vector<float> vertices;
 		float halfSize = numCells / 2.0f;

@@ -9,53 +9,172 @@
 #include <cmath>
 
 
-class Hash {
+
+class Noise {
 public:
 
+	enum Function {
+		Value,
+		ValueCubic,
+		Simplex,
+		Perlin,
+		Cellular
+	};
+
+	enum class Interpolation {
+		Linear,
+		Cosine,
+		Smoothstep,
+		Smootherstep
+	};
+
+	enum class Fractal {
+		None,
+		FBM,
+		Ridged,
+		Turbulence,
+		DomainWarp,
+	};
+
+	static constexpr float Gain = 0.5f; // Gain of 0.5 is standard form fBm
+	Function noiseFunction;
+	Interpolation interpolationMethod;
+	Fractal fractalMethod;
+	int fractalOctaves;
+
+	int m_seed;
+	float m_lacunarity;
+	float m_weightedStrength;
+
+	Noise(int seed = 0) : m_seed(seed), m_lacunarity(2.0f), m_weightedStrength(0.0f) {
+
+		noiseFunction = Function::Value;
+		interpolationMethod = Interpolation::Linear;
+		fractalMethod = Fractal::None;
+		fractalOctaves = 1;
+
+	}
+
+
 	// Hashing
+	// ----------------------------
+
+	// Magic hash constants
 	static const int PrimeX = 501125321;
 	static const int PrimeY = 1136930381;
 	static const int PrimeZ = 1720413743;
+	static const int PrimeW = 0x27d4eb2d; // 668265261
 
-	int hash1(int seed, int xPrimed, int yPrimed) {
+	static int hashInt(int seed, int xPrimed, int yPrimed) {
 
+		// Combine seed and primes using XOR.
+		// XOR is reversible, commutative, associative, and mixes bit values well.
 		int hash = seed ^ xPrimed ^ yPrimed;
 
-		hash *= 0x27d4eb2d;
+		hash *= PrimeW; //
 		return hash;
 	}
 
-	int hash2(int seed, int xPrimed, int yPrimed) {
-		int a = 1103515245;
-		int b = 12345;
-		int n = xPrimed + yPrimed * 57;
-		return (a * (n + seed) + b) & 0x7fffffff;
-	}
+//	float hashInt2(int seed, int xPrimed, int yPrimed) {
+//		int hash = seed ^ xPrimed ^ yPrimed;
+//		hash *= PrimeW;
+//		return glm::fract(hash * 43758.5453f);
+//	}
 
-	float hash3(int seed, int xPrimed, int yPrimed) {
-		int hash = seed ^ xPrimed ^ yPrimed;
-		hash *= 0x27d4eb2d;
-		return glm::fract(hash * 43758.5453f);
-	}
-
-	float valCoord(int seed, int xPrimed, int yPrimed)
+	// Get a hashed float in range [0, 1]
+	static float hashFloat(int seed, int xPrimed, int yPrimed)
 	{
-		int hash = hash1(seed, xPrimed, yPrimed);
+		int h = hashInt(seed, xPrimed, yPrimed);
 
-		hash *= hash;
-		hash ^= hash << 19;
-		return hash * (1 / 2147483648.0f);
+		// Make positive and scale to [0, 1]
+		h &= 0x7fffffff; // Ensure hash is positive integer
+		return h / 2147483647.0f; // Max 31bit unsigned integer
+
+//		hash *= hash;
+//		hash ^= hash << 19;
+//		return hash * (1 / 2147483648.0f);
 	}
 
-	// Evaluate cubic interpolation at a given point.
-	float evalBicubic2(float x, float y) {
+//	float hashFloat2(glm::vec2 uv) {
+//		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
+//	}
 
-		float xFrac = glm::fract(x);
-		float yFrac = glm::fract(y);
+
+	// Interpolation
+	// ----------------------------
+
+	// Interpolate between two values using weight t
+	static float lerp(const float &a, const float &b, const float &t) {
+		return a + t * (b - a);
+	}
+
+	// Interpolate between four values using weight t
+	static float cubicLerp(const float &a, const float &b, const float &c, const float &d, const float &t) {
+		// Old:
+		// return f * (f * (f * (-a + b - c + d) + (2.0f * a) - 2.0f * b + c - d) - a + c) + b;
+
+		// Updated:
+		float p = (d - c) - (a - b);
+		float q = (a - b) - p;
+		float r = c - a;
+		float s = b;
+		return (p * t * t * t) + (q * t * t) + (r * t) + s;
+	}
+
+	// Hermite/Smoothstep Interpolation. t : 0..1
+	static glm::vec2 smoothStep(const glm::vec2 &t) {
+		return t * t * (3.0f - 2.0f * t);
+	}
+
+	// Quintic Interpolation
+	static glm::vec2 smootherStep(const glm::vec2 &t) {
+		return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
+	}
+
+	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
+	static float eval(int seed, glm::vec2 p, Interpolation interpolation = Interpolation::Smoothstep) {
+
+		int x0 = glm::floor(p.x) * PrimeX;
+		int y0 = glm::floor(p.y) * PrimeY;
+
+		int x1 = x0 + PrimeX;
+		int y1 = y0 + PrimeY;
+
+		float c00 = hashFloat(seed, x0, y0);
+		float c10 = hashFloat(seed, x1, y0);
+		float c01 = hashFloat(seed, x0, y1);
+		float c11 = hashFloat(seed, x1, y1);
+
+		glm::vec2 t = glm::fract(p);
+
+		switch (interpolation) {
+			case Interpolation::Linear:
+				break;
+			case Interpolation::Smoothstep:
+				t = smoothStep(t);
+				break;
+			case Interpolation::Smootherstep:
+				t = smootherStep(t);
+				break;
+			default:
+				break;
+		}
+		// Linear interpolate between the four corners
+		float top = lerp(c00, c10, t.x);
+		float bot = lerp(c01, c11, t.x);
+		return lerp(top, bot, t.y);
+	}
+
+
+	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
+	float evalCubic(int seed, glm::vec2 p) {
+
+		float xFrac = glm::fract(p.x);
+		float yFrac = glm::fract(p.y);
 
 		// Generate the primed coordinates for the 16 surrounding points.
-		int x1 = glm::floor(x) * PrimeX;
-		int y1 = glm::floor(y) * PrimeY;
+		int x1 = glm::floor(p.x) * PrimeX;
+		int y1 = glm::floor(p.y) * PrimeY;
 		int x0 = x1 - PrimeX;
 		int y0 = y1 - PrimeY;
 		int x2 = x1 + PrimeX;
@@ -64,44 +183,70 @@ public:
 		int y3 = y1 + (int)((long)PrimeY << 1);
 
 		// First Row
-		float c00 = valCoord(0, x0, y0);
-		float c10 = valCoord(0, x1, y0);
-		float c20 = valCoord(0, x2, y0);
-		float c30 = valCoord(0, x3, y0);
+		float c00 = hashFloat(seed, x0, y0);
+		float c10 = hashFloat(seed, x1, y0);
+		float c20 = hashFloat(seed, x2, y0);
+		float c30 = hashFloat(seed, x3, y0);
 
 		// Second Row
-		float c01 = valCoord(0, x0, y1);
-		float c11 = valCoord(0, x1, y1);
-		float c21 = valCoord(0, x2, y1);
-		float c31 = valCoord(0, x3, y1);
+		float c01 = hashFloat(seed, x0, y1);
+		float c11 = hashFloat(seed, x1, y1);
+		float c21 = hashFloat(seed, x2, y1);
+		float c31 = hashFloat(seed, x3, y1);
 
 		// Third Row
-		float c02 = valCoord(0, x0, y2);
-		float c12 = valCoord(0, x1, y2);
-		float c22 = valCoord(0, x2, y2);
-		float c32 = valCoord(0, x3, y2);
+		float c02 = hashFloat(seed, x0, y2);
+		float c12 = hashFloat(seed, x1, y2);
+		float c22 = hashFloat(seed, x2, y2);
+		float c32 = hashFloat(seed, x3, y2);
 
 		// Fourth Row
-		float c03 = valCoord(0, x0, y3);
-		float c13 = valCoord(0, x1, y3);
-		float c23 = valCoord(0, x2, y3);
-		float c33 = valCoord(0, x3, y3);
+		float c03 = hashFloat(seed, x0, y3);
+		float c13 = hashFloat(seed, x1, y3);
+		float c23 = hashFloat(seed, x2, y3);
+		float c33 = hashFloat(seed, x3, y3);
 
-		float r0 = cubicInterpolate(c00, c10, c20, c30, xFrac);
-		float r1 = cubicInterpolate(c01, c11, c21, c31, xFrac);
-		float r2 = cubicInterpolate(c02, c12, c22, c32, xFrac);
-		float r3 = cubicInterpolate(c03, c13, c23, c33, xFrac);
+		// Interpolate each row
+		float r0 = cubicLerp(c00, c10, c20, c30, xFrac);
+		float r1 = cubicLerp(c01, c11, c21, c31, xFrac);
+		float r2 = cubicLerp(c02, c12, c22, c32, xFrac);
+		float r3 = cubicLerp(c03, c13, c23, c33, xFrac);
 
 
 		// Todo: Do we need to clamp? What is the range of the noise?
 		// Todo: How does the 1.5f factor affect the noise?
-		return cubicInterpolate(r0, r1, r2, r3, yFrac) * (1 / (1.5f * 1.5f));
+		// Interpolate the rows
+		return cubicLerp(r0, r1, r2, r3, yFrac) * (1 / (1.5f * 1.5f));
 
 	}
 
+	// Todo: Check correctness compared to old version
+	float evalFBm(glm::vec2 p) {
+
+		int s = m_seed;
+		float amp = 0.5f;
+		float freq = 1.0f;
+		float sum = 0.0f;
+
+		for (int i = 0; i < fractalOctaves; i++) {
+			float noise = eval(s, p * freq, interpolationMethod);
+			s++;
+			sum += amp * noise;
+
+			amp *= lerp(1.0f, (noise + 1) * 0.5f, m_weightedStrength);
+			amp *= Gain;
+
+			freq *= m_lacunarity; // How much detail is added or removed at each octave (Adjusts frequency)
+		}
+
+		return sum;
+
+	}
+};
 
 
-class Noise {
+
+class NoiseTable {
 public:
 
 	enum class Interpolation {
@@ -112,11 +257,8 @@ public:
 		Cubic
 	};
 
-	float hash(glm::vec2 uv) {
-		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
-	}
 
-	Noise (int seed = 0) {
+	NoiseTable (int seed = 0) {
 		std::srand(seed);
 		for (int i = 0; i < tableSize; i++) {
 			for (int j = 0; j < tableSize; j++) {
@@ -125,68 +267,63 @@ public:
 		}
 	}
 
-	glm::vec2 smoothStep(const glm::vec2 &t, float leftEdge = 0.0f, float rightEdge = 1.0f) {
-
-		// Scale, bias and saturate x to 0..1 range
-		glm::vec2 p = glm::clamp((t - leftEdge) / (rightEdge - leftEdge), 0.0f, 1.0f);
-
-		// Evaluate polynomial
-		return p * p * (3.0f - 2.0f * p);
-
+	// Hermite/Smoothstep Interpolation
+	// t is expected to be in range 0..1
+	glm::vec2 smoothStep(const glm::vec2 &t) {
+		return t * t * (3.0f - 2.0f * t);
 	}
 
-	glm::vec2 cosineStep(const glm::vec2 &f) {
-		return (glm::vec2(1.0f, 1.0f) - glm::cos(f * glm::pi<float>())) * 0.5f;
-	}
-	glm::vec2 smoothStep(const glm::vec2 &f) {
-			return f * f * (3.0f - 2.0f * f);
-	}
-	glm::vec2 smootherStep(const glm::vec2 &f) {
-		return f * f * f * (f * (f * 6.0f - 15.0f) + 10.0f);
+	// Quintic Interpolation
+	glm::vec2 smootherStep(const glm::vec2 &t) {
+		return t * t * t * (t * (t * 6.0f - 15.0f) + 10.0f);
 	}
 
-	float cubicInterpolate(float a, float b, float c, float d, float f) {
-		// n=x(x(x(−a+b−c+d)+2a−2b+c−d)−a+c)+b
-		return f * (f * (f * (-a + b - c + d) + (2.0f * a) - 2.0f * b + c - d) - a + c) + b;
+	float lerp(float a, float b, float t) {
+		return a + t * (b - a);
+	}
+
+	float cubicLerp(float a, float b, float c, float d, float f) {
+		// Old:
+//		return f * (f * (f * (-a + b - c + d) + (2.0f * a) - 2.0f * b + c - d) - a + c) + b;
 
 		// Updated:
-		// float p = (d - c) - (a - b);
-		// float q = (a - b) - p;
-		// float r = c - a;
-		// float s = b;
-		// return (p * f * f * f) + (q * f * f) + (r * f) + s;
+		float p = (d - c) - (a - b);
+		float q = (a - b) - p;
+		float r = c - a;
+		float s = b;
+		return (p * f * f * f) + (q * f * f) + (r * f) + s;
 	}
 
 	// Evaluate cubic interpolation at a given point.
-	float evalBicubic(glm::vec2 uv) {
-
-		glm::ivec2 min = glm::floor(uv);
-
-		// Interpolate
-		glm::vec2 f = glm::fract(uv);
-		float xSamples[4];
-		glm::vec4 samples;
-
-		for(int i = 0; i < 4; i++) {
-			int y = ((min.y - 1 + i) % tableSize + tableSize) % tableSize;
-			int x1 = ((min.x - 1) % tableSize + tableSize) % tableSize;
-			int x2 = ((min.x + 0) % tableSize + tableSize) % tableSize;
-			int x3 = ((min.x + 1) % tableSize + tableSize) % tableSize;
-			int x4 = ((min.x + 2) % tableSize + tableSize) % tableSize;
-
-			// Interpolate across each sample in the row
-			xSamples[i] = cubicInterpolate(
-					table[y][x1],
-					table[y][x2],
-					table[y][x3],
-					table[y][x4],
-					f.x);
-		}
-
-		// Interpolate across each row
-		return glm::clamp(cubicInterpolate(xSamples[0], xSamples[1], xSamples[2], xSamples[3], f.y), 0.0f, 1.0f);
-
-	}
+//	float evalBicubic(glm::vec2 uv) {
+//
+//		glm::ivec2 min = glm::floor(uv);
+//
+//		// Interpolate
+//		glm::vec2 f = glm::fract(uv);
+//		float xSamples[4];
+//		glm::vec4 samples;
+//
+//		for(int i = 0; i < 4; i++) {
+//			int y = ((min.y - 1 + i) % tableSize + tableSize) % tableSize;
+//			int x1 = ((min.x - 1) % tableSize + tableSize) % tableSize;
+//			int x2 = ((min.x + 0) % tableSize + tableSize) % tableSize;
+//			int x3 = ((min.x + 1) % tableSize + tableSize) % tableSize;
+//			int x4 = ((min.x + 2) % tableSize + tableSize) % tableSize;
+//
+//			// Interpolate across each sample in the row
+//			xSamples[i] = cubicInterpolate(
+//					table[y][x1],
+//					table[y][x2],
+//					table[y][x3],
+//					table[y][x4],
+//					f.x);
+//		}
+//
+//		// Interpolate across each row
+//		return glm::clamp(cubicInterpolate(xSamples[0], xSamples[1], xSamples[2], xSamples[3], f.y), 0.0f, 1.0f);
+//
+//	}
 
 	/**
 	 * @brief Evaluate the noise at a given point using bilinear interpolation
@@ -285,7 +422,7 @@ public:
 
 
 
-		if(stbi_write_bmp("noise.bmp", Noise::mapSize, Noise::mapSize, 1, bitMap) == 0) {
+		if(stbi_write_bmp("noise.bmp", NoiseTable::mapSize, NoiseTable::mapSize, 1, bitMap) == 0) {
 			std::cerr << "Failed to write noise to file" << std::endl;
 		} else {
 			std::cout << "Wrote noise to file" << std::endl;

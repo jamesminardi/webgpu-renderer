@@ -125,6 +125,15 @@ public:
 		}
 	}
 
+	glm::vec2 smoothStep(const glm::vec2 &t, float leftEdge = 0.0f, float rightEdge = 1.0f) {
+
+		// Scale, bias and saturate x to 0..1 range
+		glm::vec2 p = glm::clamp((t - leftEdge) / (rightEdge - leftEdge), 0.0f, 1.0f);
+
+		// Evaluate polynomial
+		return p * p * (3.0f - 2.0f * p);
+
+	}
 
 	glm::vec2 cosineStep(const glm::vec2 &f) {
 		return (glm::vec2(1.0f, 1.0f) - glm::cos(f * glm::pi<float>())) * 0.5f;
@@ -139,6 +148,13 @@ public:
 	float cubicInterpolate(float a, float b, float c, float d, float f) {
 		// n=x(x(x(−a+b−c+d)+2a−2b+c−d)−a+c)+b
 		return f * (f * (f * (-a + b - c + d) + (2.0f * a) - 2.0f * b + c - d) - a + c) + b;
+
+		// Updated:
+		// float p = (d - c) - (a - b);
+		// float q = (a - b) - p;
+		// float r = c - a;
+		// float s = b;
+		// return (p * f * f * f) + (q * f * f) + (r * f) + s;
 	}
 
 	// Evaluate cubic interpolation at a given point.

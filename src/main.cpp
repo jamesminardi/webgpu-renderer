@@ -16,20 +16,26 @@ int main (int, char**) {
 //	noise.output();
 //	noise.outputColor();
 
-	// Terrain App
-	try {
-		auto app = Application();
+	NoiseTable noiseTable;
 
-		while (app.isRunning()) {
-			app.onFrame();
-		}
-	}
-	catch (const std::runtime_error& e) {
-		std::cerr << "[Runtime Exception] " << e.what() << '\n';
-	}
-	catch(const std::exception& e) {
-		std::cerr << e.what() << '\n';
-	}
+	noiseTable.generate();
+
+	noiseTable.output();
+
+	// Terrain App
+//	try {
+//		auto app = Application();
+//
+//		while (app.isRunning()) {
+//			app.onFrame();
+//		}
+//	}
+//	catch (const std::runtime_error& e) {
+//		std::cerr << "[Runtime Exception] " << e.what() << '\n';
+//	}
+//	catch(const std::exception& e) {
+//		std::cerr << e.what() << '\n';
+//	}
 
 	return 0;
 }

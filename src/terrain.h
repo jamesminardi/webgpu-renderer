@@ -17,6 +17,9 @@ public:
 
 	Chunk() = default;
 
+	explicit Chunk(int chunkSize) : size(chunkSize) {}
+
+
 	void load(Noise noise, glm::ivec2 chunkPos) {
 		heightData.resize(size * size);
 		chunkSeed = noise.m_seed * chunkPos.x + chunkPos.y;
@@ -40,7 +43,8 @@ public:
 		}
 	}
 
-	static const uint8_t size = 16; // Number of vertices per side of the chunk
+	static constexpr int DefaultChunkSize = 16;
+	int size = DefaultChunkSize; // Number of vertices per side of the chunk
 	int chunkSeed = 0;
 	glm::ivec2 pos{};
 	std::vector<float> heightData;
@@ -52,7 +56,8 @@ class World {
 public:
 	World() = default;
 
-	void load(Noise noise, int worldSize = 8) : size(worldSize) {
+	void load(Noise noise, int worldSize = 8) {
+		size = worldSize;
 		chunks.resize(worldSize * worldSize);
 		for (int row = 0; row < size; row++) {
 			for (int col = 0; col < size; col++) {
@@ -127,31 +132,30 @@ public:
 //	}
 
 	// Generates vertices from left to right, bottom to top
-	static std::vector<float> generateGridVertices(int numCells, float scale) {
-
-		NoiseTable noise(0);
-
-		std::vector<float> vertices;
-		float halfSize = numCells / 2.0f;
-
-		int stepsPerUnit = numCells / noise.tableSize;
-
-		for (int i = 0; i <= numCells; i++) {
-			for (int j = 0; j <= numCells; j++) {
-				float x = (j - halfSize) * scale;
-				float z = (i - halfSize) * scale;
-
-				float xAdjusted = x / float(stepsPerUnit);
-				float zAdjusted = z / float(stepsPerUnit);
-				float y = noise.evalBicubic(glm::vec2(xAdjusted, zAdjusted)) * 5.0f;
-
-				vertices.push_back(x);
-				vertices.push_back(y);
-				vertices.push_back(z);
-			}
-		}
-		return vertices;
-	}
+//	static std::vector<float> generateGridVertices(int numCells, float scale) {
+//		NoiseTable noise(0);
+//
+//		std::vector<float> vertices;
+//		float halfSize = numCells / 2.0f;
+//
+//		int stepsPerUnit = numCells / noise.tableSize;
+//
+//		for (int i = 0; i <= numCells; i++) {
+//			for (int j = 0; j <= numCells; j++) {
+//				float x = (j - halfSize) * scale;
+//				float z = (i - halfSize) * scale;
+//
+//				float xAdjusted = x / float(stepsPerUnit);
+//				float zAdjusted = z / float(stepsPerUnit);
+//				float y = noise.evalBicubic(glm::vec2(xAdjusted, zAdjusted)) * 5.0f;
+//
+//				vertices.push_back(x);
+//				vertices.push_back(y);
+//				vertices.push_back(z);
+//			}
+//		}
+//		return vertices;
+//	}
 
 	static std::vector<uint16_t> generateGridIndices(int numCells) {
 		std::vector<uint16_t> indices;
@@ -253,7 +257,8 @@ public:
 	Terrain() = default;
 
 	Mesh generateSquareMesh(int numSides, float scale, bool wireFrame = false) {
-		std::vector<float> vertices = Mesh::generateGridVertices(numSides, scale);
+		std::vector<float> vertices;
+//		std::vector<float> vertices = Mesh::generateGridVertices(numSides, scale);
 		std::vector<float> colors = Mesh::generateGridColors(numSides);
 		std::vector<uint16_t> indices;
 

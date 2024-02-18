@@ -11,125 +11,29 @@
 
 
 
-
-class Chunk {
-public:
-
-	Chunk() = default;
-
-	explicit Chunk(int chunkSize) : size(chunkSize) {}
-
-
-	void load(Noise noise, glm::ivec2 chunkPos) {
-		heightData.resize(size * size);
-		chunkSeed = noise.m_seed * chunkPos.x + chunkPos.y;
-		generate(noise);
-	}
-
-	void unload() {
-		heightData.clear();
-	}
-
-	void generate(Noise noise) {
-		for (int row = 0; row < size; row++) {
-
-			int worldPosX = row + (pos.x * size);
-			for (int col = 0; col < size; col++) {
-
-				int worldPosY = col + (pos.y * size);
-				float h = Noise::eval(noise.m_seed, glm::vec2({worldPosX, worldPosY}));
-				heightData[row * size + col] = h;
-			}
-		}
-	}
-
-	static constexpr int DefaultChunkSize = 16;
-	int size = DefaultChunkSize; // Number of vertices per side of the chunk
-	int chunkSeed = 0;
-	glm::ivec2 pos{};
-	std::vector<float> heightData;
-
-
-};
-
-class World {
-public:
-	World() = default;
-
-	void load(Noise noise, int worldSize = 8) {
-		size = worldSize;
-		chunks.resize(worldSize * worldSize);
-		for (int row = 0; row < size; row++) {
-			for (int col = 0; col < size; col++) {
-				chunks[row * size + col].load(noise, {row, col});
-			}
-		}
-	}
-
-	void unload() {
-		for (auto& chunk : chunks) {
-			chunk.unload();
-		}
-	}
-
-	int size; // Number of chunks per side of the world
-	std::vector<Chunk> chunks;
-};
-
-
-
 class Mesh  {
 public:
-	std::vector<float> vertices;
+	std::vector<glm::vec3> vertices;
 	std::vector<uint16_t> indices;
-	std::vector<float> colors;
+	std::vector<glm::vec3> colors;
 //	wgpu::Buffer verticesBuffer = nullptr;
 //	wgpu::Buffer indicesBuffer = nullptr;
 
 	Mesh() = default;
 
-	Mesh(std::vector<float> vertices, std::vector<uint16_t> indices, std::vector<float> colors = {}) : vertices(vertices), indices(indices), colors(colors) {
-		std::cout << "Index Count: " << indices.size() << std::endl;
-		std::cout << "Vertex Count: " << (vertices.size() / 3) << std::endl;
-		std::cout << "Color Count: " << (colors.size() / 3) << std::endl;
-		assert(vertices.size() == colors.size());
-
-		// Adjust index data to be a multiple of 4
-		while (indices.size() % 4 != 0) {
-			indices.push_back(0);
-		}
-
-	}
-
-
-//	static float hash(glm::vec2 uv) {
-//		return glm::fract(glm::sin(glm::dot(uv, glm::vec2(12.9898f, 78.233f))) * 43758.5453f);
+//	Mesh(std::vector<float> vertices, std::vector<uint16_t> indices, std::vector<float> colors = {}) : vertices(vertices), indices(indices), colors(colors) {
+//		std::cout << "Index Count: " << indices.size() << std::endl;
+//		std::cout << "Vertex Count: " << (vertices.size() / 3) << std::endl;
+//		std::cout << "Color Count: " << (colors.size() / 3) << std::endl;
+//		assert(vertices.size() == colors.size());
+//
+//		// Adjust index data to be a multiple of 4
+//		while (indices.size() % 4 != 0) {
+//			indices.push_back(0);
+//		}
+//
 //	}
-//
-//	static float valueNoise(glm::vec2 x) {
-//		glm::vec2 i = glm::floor(x);
-//		glm::vec2 f = glm::fract(x);
-//
-//		// Smoothstep
-//		glm::vec2 u = f * f * (3.0f - 2.0f * f);
-//
-//		// Hash coordinates
-//		glm::vec2 a = glm::vec2(i.x, i.y);
-//		glm::vec2 b = glm::vec2(i.x + 1.0f, i.y);
-//		glm::vec2 c = glm::vec2(i.x, i.y + 1.0f);
-//		glm::vec2 d = glm::vec2(i.x + 1.0f, i.y + 1.0f);
-//
-//		// Hash values
-//		float v1 = hash(a);
-//		float v2 = hash(b);
-//		float v3 = hash(c);
-//		float v4 = hash(d);
-//
-//		// Interpolate
-//		float x1 = glm::mix(v1, v2, u.x);
-//		float x2 = glm::mix(v3, v4, u.x);
-//		return glm::mix(x1, x2, u.y);
-//	}
+
 
 	// Generates vertices from left to right, bottom to top
 //	static std::vector<float> generateGridVertices(int numCells, float scale) {
@@ -170,6 +74,7 @@ public:
 				indices.push_back(bottomLeft);
 				indices.push_back(bottomRight);
 				indices.push_back(topLeft);
+
 
 				// Second triangle (top-right, bottom-left, bottom-right)
 				indices.push_back(topLeft);
@@ -230,17 +135,15 @@ public:
 		return indices;
 	}
 
-	static std::vector<float> generateGridColors(int numCells) {
-		std::vector<float> colors;
+	static std::vector<glm::vec3> generateGridColors(int numCells) {
+		std::vector<glm::vec3> colors;
 		for (int i = 0; i <= numCells; i++) {
 			for (int j = 0; j <= numCells; j++) {
 				float r = static_cast<float>(j) / numCells;
 				float g = static_cast<float>(i) / numCells;
 				float b = (1 - g) * (1 - r);  // You can adjust this value as needed
 
-				colors.push_back(r);
-				colors.push_back(g);
-				colors.push_back(b);
+				colors.push_back({r, g, b});
 			}
 		}
 		return colors;
@@ -249,34 +152,131 @@ public:
 };
 
 
-class Terrain {
+class Chunk {
 public:
 
-	Mesh mesh;
+	Chunk() = default;
 
-	Terrain() = default;
+	explicit Chunk(int chunkSize) : size(chunkSize) {}
 
-	Mesh generateSquareMesh(int numSides, float scale, bool wireFrame = false) {
-		std::vector<float> vertices;
-//		std::vector<float> vertices = Mesh::generateGridVertices(numSides, scale);
-		std::vector<float> colors = Mesh::generateGridColors(numSides);
-		std::vector<uint16_t> indices;
 
-		if (wireFrame) {
-			indices = Mesh::generateWireFrameGridIndices(numSides);
+	void load(Noise noise, glm::ivec2 chunkPos, bool wire = false) {
+		pos = chunkPos;
+		heightData.resize((size+1) * (size+1));
+		mesh.vertices.resize((size+1) * (size+1));
+		chunkSeed = noise.m_seed * chunkPos.x + chunkPos.y;
+
+		if (wire) {
+			mesh.indices = Mesh::generateWireFrameGridIndices(size);
 		} else {
-			indices = Mesh::generateGridIndices(numSides);
+			mesh.indices = Mesh::generateGridIndices(size);
 		}
 
-		this->wireFrame = wireFrame;
-		mesh = Mesh(vertices, indices, colors);
-		return mesh;
+		this->wireFrame = wire;
+
+
+		for (int row = 0; row <= size; row++) {
+
+			int worldPosY = row + (pos.y * size);
+			for (int col = 0; col <= size; col++) {
+
+				int worldPosX = col + (pos.x * size);
+				float h = noise.eval({worldPosX / float(2), worldPosY / float(2)});
+//				heightData[row * size + col] = h;
+				mesh.vertices[row * (size+1) + col] = {worldPosX, h, worldPosY};
+			}
+		}
+		mesh.indices = Mesh::generateGridIndices(size);
+		mesh.colors = Mesh::generateGridColors(size);
+
+		std::cout << "Index Count: " << mesh.indices.size() << std::endl;
+		std::cout << "Vertex Count: " << (mesh.vertices.size()) << std::endl;
+		std::cout << "Color Count: " << (mesh.colors.size()) << std::endl;
+		assert(mesh.vertices.size() == mesh.colors.size());
+
+		// Adjust index data to be a multiple of 4
+		while (mesh.indices.size() % 4 != 0) {
+			mesh.indices.push_back(0);
+		}
 	}
 
+	void unload() {
+		heightData.clear();
+		mesh.vertices.clear();
+		mesh.colors.clear();
+		mesh.indices.clear();
+	}
+
+
+
+	static constexpr int DefaultChunkSize = 16;
+	int size = DefaultChunkSize; // Number of vertices per side of the chunk
+	int chunkSeed = 0;
+	glm::ivec2 pos{};
+	std::vector<float> heightData; // Use mesh instead
+	Mesh mesh;
 	bool needs_update = false;
 	bool wireFrame = false;
 
-private:
-
-
 };
+
+class World {
+public:
+	World() = default;
+
+	void load(Noise noise, int worldSize = 8) {
+		size = worldSize;
+		chunks.resize(worldSize * worldSize);
+		for (int row = 0; row < size; row++) {
+			for (int col = 0; col < size; col++) {
+				chunks[row * size + col].load(noise, {row, col});
+			}
+		}
+	}
+
+	void unload() {
+		for (auto& chunk : chunks) {
+			chunk.unload();
+		}
+	}
+
+	int size; // Number of chunks per side of the world
+	std::vector<Chunk> chunks;
+};
+
+
+
+
+
+
+//class Terrain {
+//public:
+//
+//	Mesh mesh;
+//
+//	Terrain() = default;
+//
+//	Mesh generateSquareMesh(int numSides, float scale, bool wireFrame = false) {
+//		std::vector<float> vertices;
+////		std::vector<float> vertices = Mesh::generateGridVertices(numSides, scale);
+//		std::vector<float> colors = Mesh::generateGridColors(numSides);
+//		std::vector<uint16_t> indices;
+//
+//		if (wireFrame) {
+//			indices = Mesh::generateWireFrameGridIndices(numSides);
+//		} else {
+//			indices = Mesh::generateGridIndices(numSides);
+//		}
+//
+//		this->wireFrame = wireFrame;
+//		mesh = Mesh(vertices, indices, colors);
+//		return mesh;
+//	}
+//
+//	bool needs_update = false;
+//	bool wireFrame = false;
+//
+//private:
+//
+//
+//};

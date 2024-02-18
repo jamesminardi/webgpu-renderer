@@ -9,6 +9,10 @@
 #include <cmath>
 #include <vector>
 
+class NoiseDescriptor {
+
+};
+
 
 class Noise {
 public:
@@ -65,20 +69,20 @@ public:
 	static const int PrimeZ = 1720413743;
 	static const int PrimeW = 0x27d4eb2d; // 668265261
 
-	static int hashInt(int seed, int xPrimed, int yPrimed) {
+	static int hashPrimedInt(int seed, int xPrimed, int yPrimed) {
 
 		// Combine seed and primes using XOR.
 		// XOR is reversible, commutative, associative, and mixes bit values well.
-		int hash = seed ^ xPrimed ^ yPrimed;
+		int hash = (seed+PrimeZ) ^ (xPrimed+PrimeY) ^ (yPrimed+PrimeX);
 		hash *= PrimeW;
 		return hash;
 	}
 
 
 	// Get a hashed float in range [0, 1]
-	static float hashFloat(int seed, int xPrimed, int yPrimed)
+	static float hashPrimedFloat(int seed, int xPrimed, int yPrimed)
 	{
-		int h = hashInt(seed, xPrimed, yPrimed);
+		int h = hashPrimedInt(seed, xPrimed, yPrimed);
 		// Make positive and scale to [0, 1]
 		h &= 0x7fffffff; // Ensure hash is positive integer
 		return h / 2147483647.0f; // Max 31bit unsigned integer
@@ -105,7 +109,7 @@ public:
 		float q = (a - b) - p;
 		float r = c - a;
 		float s = b;
-		return (p * t * t * t) + (q * t * t) + (r * t) + s;
+		return glm::clamp((p * t * t * t) + (q * t * t) + (r * t) + s, 0.0f, 1.0f);
 	}
 
 	// Hermite/Smoothstep Interpolation. t : 0..1
@@ -124,27 +128,44 @@ public:
 	}
 
 	static float evalGrid(int seed, int x, int y) {
-		return hashFloat(seed, (x ^ PrimeX) * PrimeX, (y ^ PrimeY) * PrimeY);
+		return hashPrimedFloat(seed, (x ^ PrimeX) * PrimeX, (y ^ PrimeY) * PrimeY);
 	}
 
 
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
-	static float eval(int seed, glm::vec2 p, Interpolation interpolation = Interpolation::Smoothstep) {
+	float eval(glm::vec2 p) {
+		switch(fractalMethod) {
+			case Fractal::None:
+				switch (noiseFunction) {
+					case Function::Value:
+						return evalLinear(p);
+					case Function::ValueCubic:
+						return evalCubic(p);
+					default:
+						return evalLinear(p);
+				}
+			case Fractal::FBM:
+				return evalFBm(p);
+			default:
+				return evalLinear(p);
+		}
+	}
 
-		int x0 = (int(glm::floor(p.x)) ^ PrimeX) * PrimeX;
-		int y0 = (int(glm::floor(p.y)) ^ PrimeY) * PrimeY;
+	float evalLinear(glm::vec2 p) {
+		int x0 = int(glm::floor(p.x)) * PrimeX;
+		int y0 = int(glm::floor(p.y)) * PrimeY;
 
 		int x1 = x0 + PrimeX;
 		int y1 = y0 + PrimeY;
 
-		float c00 = hashFloat(seed, x0, y0);
-		float c10 = hashFloat(seed, x1, y0);
-		float c01 = hashFloat(seed, x0, y1);
-		float c11 = hashFloat(seed, x1, y1);
+		float c00 = hashPrimedFloat(m_seed, x0, y0);
+		float c10 = hashPrimedFloat(m_seed, x1, y0);
+		float c01 = hashPrimedFloat(m_seed, x0, y1);
+		float c11 = hashPrimedFloat(m_seed, x1, y1);
 
 		glm::vec2 t = glm::fract(p);
 
-		switch (interpolation) {
+		switch (interpolationMethod) {
 			case Interpolation::Linear:
 				break;
 			case Interpolation::Smoothstep:
@@ -164,44 +185,44 @@ public:
 
 
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
-	float evalCubic(int seed, glm::vec2 p) {
+	float evalCubic(glm::vec2 p) {
 
 		float xFrac = glm::fract(p.x);
 		float yFrac = glm::fract(p.y);
 
 		// Generate the primed coordinates for the 16 surrounding points.
-		int x1 = (int(glm::floor(p.x)) ^ PrimeX) * PrimeX;
-		int y1 = (int(glm::floor(p.y)) ^ PrimeY) * PrimeY;
+		int x1 = int(glm::floor(p.x)) * PrimeX;
+		int y1 = int(glm::floor(p.y)) * PrimeY;
 		int x0 = x1 - PrimeX;
 		int y0 = y1 - PrimeY;
 		int x2 = x1 + PrimeX;
 		int y2 = y1 + PrimeY;
-		int x3 = x1 + (int)((long)PrimeX << 1); // Advance two steps
-		int y3 = y1 + (int)((long)PrimeY << 1);
+		int x3 = x2 + PrimeX; // Advance two steps
+		int y3 = y2 + PrimeY;
 
 		// First Row
-		float c00 = hashFloat(seed, x0, y0);
-		float c10 = hashFloat(seed, x1, y0);
-		float c20 = hashFloat(seed, x2, y0);
-		float c30 = hashFloat(seed, x3, y0);
+		float c00 = hashPrimedFloat(m_seed, x0, y0);
+		float c10 = hashPrimedFloat(m_seed, x1, y0);
+		float c20 = hashPrimedFloat(m_seed, x2, y0);
+		float c30 = hashPrimedFloat(m_seed, x3, y0);
 
 		// Second Row
-		float c01 = hashFloat(seed, x0, y1);
-		float c11 = hashFloat(seed, x1, y1);
-		float c21 = hashFloat(seed, x2, y1);
-		float c31 = hashFloat(seed, x3, y1);
+		float c01 = hashPrimedFloat(m_seed, x0, y1);
+		float c11 = hashPrimedFloat(m_seed, x1, y1);
+		float c21 = hashPrimedFloat(m_seed, x2, y1);
+		float c31 = hashPrimedFloat(m_seed, x3, y1);
 
 		// Third Row
-		float c02 = hashFloat(seed, x0, y2);
-		float c12 = hashFloat(seed, x1, y2);
-		float c22 = hashFloat(seed, x2, y2);
-		float c32 = hashFloat(seed, x3, y2);
+		float c02 = hashPrimedFloat(m_seed, x0, y2);
+		float c12 = hashPrimedFloat(m_seed, x1, y2);
+		float c22 = hashPrimedFloat(m_seed, x2, y2);
+		float c32 = hashPrimedFloat(m_seed, x3, y2);
 
 		// Fourth Row
-		float c03 = hashFloat(seed, x0, y3);
-		float c13 = hashFloat(seed, x1, y3);
-		float c23 = hashFloat(seed, x2, y3);
-		float c33 = hashFloat(seed, x3, y3);
+		float c03 = hashPrimedFloat(m_seed, x0, y3);
+		float c13 = hashPrimedFloat(m_seed, x1, y3);
+		float c23 = hashPrimedFloat(m_seed, x2, y3);
+		float c33 = hashPrimedFloat(m_seed, x3, y3);
 
 		// Interpolate each row
 		float r0 = cubicLerp(c00, c10, c20, c30, xFrac);
@@ -213,7 +234,8 @@ public:
 		// Todo: Do we need to clamp? What is the range of the noise?
 		// Todo: How does the 1.5f factor affect the noise?
 		// Interpolate the rows
-		return cubicLerp(r0, r1, r2, r3, yFrac) * (1 / (1.5f * 1.5f));
+		return cubicLerp(r0, r1, r2, r3, yFrac);
+//		return cubicLerp(r0, r1, r2, r3, yFrac) * (1 / (1.5f * 1.5f));
 
 	}
 
@@ -221,22 +243,40 @@ public:
 	float evalFBm(glm::vec2 p) {
 
 		int s = m_seed;
-		float amp = 0.5f;
+
+		// Decrease amplitude as octaves increase
+		float amp = lerp(0.4f, 1.0f, 1.0f / fractalOctaves);
 		float freq = 1.0f;
 		float sum = 0.0f;
 
 		for (int i = 0; i < fractalOctaves; i++) {
-			float noise = eval(s, p * freq, interpolationMethod);
+
+			float noise;
+			switch (noiseFunction) {
+				case Function::Value:
+					noise = evalLinear(p * freq);
+					break;
+				case Function::ValueCubic:
+					noise = evalCubic(p * freq);
+					break;
+				default:
+					noise = evalLinear(p * freq);
+					break;
+			}
 			s++;
 			sum += amp * noise;
 
-			amp *= lerp(1.0f, (noise + 1) * 0.5f, m_weightedStrength);
+			// Amplify the smaller values, don't oversaturate the larger values.
+			// When strength=0.0f, not weighted
+			// When strength=1.0f, weight
+			amp *= lerp(1.0f, (noise * 0.5f), m_weightedStrength);
 			amp *= Gain;
 
 			freq *= m_lacunarity; // How much detail is added or removed at each octave (Adjusts frequency)
+
 		}
 
-		return sum;
+		return glm::clamp(sum, 0.0f, 1.0f);
 
 	}
 };
@@ -246,29 +286,56 @@ class NoiseTable {
 public:
 	constexpr static int DefaultSize = 16;
 	constexpr static int DefaultSeed = 0;
-	Noise noise;
 	std::vector<uint8_t> table;
 	int size = DefaultSize;
 
-	NoiseTable(int seed = DefaultSeed) {
-		noise = Noise(seed);
-//		table.reserve(DefaultSize * DefaultSize);
-	}
+	NoiseTable() = default;
 
-	void generate(int tableSize = DefaultSize) {
+	void generate(Noise noise, int tableSize = DefaultSize, int gridSize = DefaultSize, Noise::Function function = Noise::Function::Value, Noise::Interpolation interpolation = Noise::Interpolation::Linear, Noise::Fractal fractal = Noise::Fractal::None) {
 		size = tableSize;
+		int stepsPerUnit = tableSize / gridSize;
 		table.resize(size * size);
 		for (int y = 0; y < size; y++) {
+			float v = y / float(stepsPerUnit);
+
 			for (int x = 0; x < size; x++) {
-				table[y * size + x] = static_cast<uint8_t>(Noise::evalGrid(noise.m_seed, x, y) * 255);
+
+				float u = x / float(stepsPerUnit);
+
+				table[y * size + x] = static_cast<uint8_t>(noise.eval(glm::vec2(u, v)) * 255);
+//				switch (fractal) {
+//					case Noise::Fractal::None:
+//						switch (function) {
+//							case Noise::Function::Value:
+//								table[y * size + x] = static_cast<uint8_t>(Noise::eval(noise.m_seed, glm::vec2(u, v), interpolation) * 255);
+//								break;
+//							case Noise::Function::ValueCubic:
+//								tmp = Noise::evalCubic(noise.m_seed, glm::vec2(u, v));
+//								table[y * size + x] = static_cast<uint8_t>(tmp * 255);
+//								break;
+//							default:
+//								table[y * size + x] = static_cast<uint8_t>(Noise::evalGrid(noise.m_seed, x, y) * 255);
+//								break;
+//						}
+//						break;
+//					case Noise::Fractal::FBM:
+//						tmp = noise.evalFBm(glm::vec2(u, v));
+//						table[y * size + x] = static_cast<uint8_t>(tmp * 255);
+//						continue;
+//					default:
+//						break;
+//				}
+
+
+
 			}
 		}
 	}
 
-	void output() {
+	void output(const std::string& fileName = "noise.bmp") {
 
 		// Todo: use unused filename
-		if(stbi_write_bmp("noise.bmp", size, size, 1, table.data()) == 0) {
+		if(stbi_write_bmp(fileName.c_str(), size, size, 1, table.data()) == 0) {
 			std::cerr << "Failed to write noise to file" << std::endl;
 		} else {
 			std::cout << "Wrote noise to file" << std::endl;

@@ -108,7 +108,7 @@ private:
 	bool m_wireFrame = false;
 
 
-	Terrain m_terrain;
+	Chunk chunk;
 
 
 	std::unique_ptr<Window> m_window;

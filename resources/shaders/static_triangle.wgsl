@@ -41,7 +41,7 @@ struct ShaderUniforms {
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
 	out.position = uShaderUniforms.projectionMatrix * uShaderUniforms.viewMatrix * uShaderUniforms.modelMatrix * vec4f(in.position.xyz,  1.0);
-	out.color = in.color;
+	out.color = vec3f(in.position.y);
 	return out;
 }
 

@@ -59,7 +59,7 @@ void Application::onFrame() {
 //	m_uniforms.modelMatrix = R1 * S * T1;
 //	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
-	if (m_wireFrame != m_terrain.wireFrame)
+	if (m_wireFrame != chunk.wireFrame)
 	{
 		terminateGeometry();
 		terminateRenderPipeline();
@@ -67,11 +67,11 @@ void Application::onFrame() {
 		initGeometry();
 	}
 
-	if (m_terrain.needs_update)
+	if (chunk.needs_update)
 	{
 		terminateGeometry();
 		initGeometry();
-		m_terrain.needs_update = false;
+		chunk.needs_update = false;
 	}
 
 	// Get target texture view
@@ -138,18 +138,18 @@ void Application::onFrame() {
 	renderPass.setPipeline(m_pipeline);
 
 	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_positionBuffer, 0, m_terrain.mesh.vertices.size() * sizeof(float));
+	renderPass.setVertexBuffer(0, m_positionBuffer, 0, chunk.mesh.vertices.size() * sizeof(float));
 
-	renderPass.setVertexBuffer(1, m_colorBuffer, 0, m_terrain.mesh.colors.size() * sizeof(float));
+	renderPass.setVertexBuffer(1, m_colorBuffer, 0, chunk.mesh.colors.size() * sizeof(float));
 
-	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, m_terrain.mesh.indices.size() * sizeof(uint16_t));
+	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
 
 	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
 //	renderPass.draw(m_vertexCount,1,0,0);
-	renderPass.drawIndexed(m_terrain.mesh.indices.size(), 1, 0, 0, 0);
+	renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -538,41 +538,46 @@ void Application::initGeometry() {
 //	m_indexData = generateGridIndices(100);
 //	m_colorData = generateGridColors(100);
 
-	m_terrain.generateSquareMesh(m_size, m_scale, m_wireFrame);
+	Noise noise;
+	noise.noiseFunction = Noise::Function::ValueCubic;
+	chunk.load(noise, {0, 0}, m_wireFrame);
 
 	// Create position buffer
 	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.size = m_terrain.mesh.vertices.size() * sizeof(float);
+	bufferDesc.size = chunk.mesh.vertices.size() * sizeof(glm::vec3);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
 	m_positionBuffer = m_device.createBuffer(bufferDesc);
 
 	// Upload pos data to position buffer
-	m_queue.writeBuffer(m_positionBuffer, 0, m_terrain.mesh.vertices.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_positionBuffer, 0, chunk.mesh.vertices.data(), bufferDesc.size);
 
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
 
 	// Create color buffer
-	bufferDesc.size = m_terrain.mesh.colors.size() * sizeof(float);
+	bufferDesc.size = chunk.mesh.colors.size() * sizeof(glm::vec3);
 	m_colorBuffer = m_device.createBuffer(bufferDesc);
 
 	// Upload color data to color buffer
-	m_queue.writeBuffer(m_colorBuffer, 0, m_terrain.mesh.colors.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_colorBuffer, 0, chunk.mesh.colors.data(), bufferDesc.size);
 
 	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
 
 
-	bufferDesc.size = m_terrain.mesh.indices.size() * sizeof(uint16_t);
+	bufferDesc.size = chunk.mesh.indices.size() * sizeof(uint16_t);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_indexBuffer = m_device.createBuffer(bufferDesc);
 
-	m_queue.writeBuffer(m_indexBuffer, 0, m_terrain.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+	m_queue.writeBuffer(m_indexBuffer, 0, chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
 
 	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
 }
 
 void Application::terminateGeometry() {
+
+	chunk.unload();
+
 	m_positionBuffer.destroy();
 	m_indexBuffer.destroy();
 	m_colorBuffer.destroy();
@@ -698,11 +703,11 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
 	if (ImGui::SliderInt("sides", &m_size, 16, 512)) {		// Edit 1 int using a slider
-		m_terrain.needs_update = true;
+		chunk.needs_update = true;
 	}
 
 	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
-		m_terrain.needs_update = true;
+		chunk.needs_update = true;
 	}
 
 

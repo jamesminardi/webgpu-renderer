@@ -199,6 +199,7 @@ void Application::initWindowAndDevice() {
 	wgpu::RequestAdapterOptions adapterOpts{};
 	adapterOpts.nextInChain = nullptr;
 	adapterOpts.compatibleSurface = m_surface;
+	adapterOpts.powerPreference = wgpu::PowerPreference::LowPower;
 
 	auto adapter = m_instance.requestAdapter(adapterOpts);
 	std::cout << "Got adapter: " << adapter << std::endl;

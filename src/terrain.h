@@ -164,7 +164,7 @@ public:
 		pos = chunkPos;
 		heightData.resize((size+1) * (size+1));
 		mesh.vertices.resize((size+1) * (size+1));
-		chunkSeed = noise.m_seed * chunkPos.x + chunkPos.y;
+		chunkSeed = noise.desc.seed * chunkPos.x + chunkPos.y;
 
 		if (wire) {
 			mesh.indices = Mesh::generateWireFrameGridIndices(size);
@@ -181,7 +181,7 @@ public:
 			for (int col = 0; col <= size; col++) {
 
 				int worldPosX = col + (pos.x * size);
-				float h = noise.eval({worldPosX / float(2), worldPosY / float(2)});
+				float h = noise.eval({worldPosX, worldPosY}) * amplitude;
 //				heightData[row * size + col] = h;
 				mesh.vertices[row * (size+1) + col] = {worldPosX, h, worldPosY};
 			}
@@ -208,8 +208,8 @@ public:
 	}
 
 
-
-	static constexpr int DefaultChunkSize = 16;
+	float amplitude = 1.0f;
+	static constexpr int DefaultChunkSize = 128;
 	int size = DefaultChunkSize; // Number of vertices per side of the chunk
 	int chunkSeed = 0;
 	glm::ivec2 pos{};

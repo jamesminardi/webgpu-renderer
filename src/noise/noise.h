@@ -9,10 +9,6 @@
 #include <cmath>
 #include <vector>
 
-class NoiseDescriptor {
-
-};
-
 
 class Noise {
 public:
@@ -25,14 +21,14 @@ public:
 		Cellular
 	};
 
-	enum class Interpolation {
+	enum Interpolation {
 		Linear,
 		Cosine,
 		Smoothstep,
 		Smootherstep
 	};
 
-	enum class Fractal {
+	enum Fractal {
 		None,
 		FBM,
 		Ridged,
@@ -40,23 +36,39 @@ public:
 		DomainWarp,
 	};
 
-	static constexpr float Gain = 0.5f; // Gain of 0.5 is standard form fBm
-	Function noiseFunction;
-	Interpolation interpolationMethod;
-	Fractal fractalMethod;
-	int fractalOctaves;
+	static constexpr Function DefaultFunction = Function::Value;
+	static constexpr Interpolation DefaultInterpolation = Interpolation::Linear;
+	static constexpr Fractal DefaultFractal = Fractal::None;
+	static constexpr int DefaultSeed = 0;
+	static constexpr float DefaultFrequency = 1.0f;
+	static constexpr float DefaultLacunarity = 2.0f;
+	static constexpr float DefaultWeightedStrength = 0.0f;
+	static constexpr float DefaultGain = 0.5f;
+	static constexpr int DefaultOctaves = 3;
+	static constexpr bool DefaultWireFrame = false;
 
-	int m_seed;
-	float m_lacunarity;
-	float m_weightedStrength;
+	struct Descriptor {
+		Function function = DefaultFunction;
+		Interpolation interpolation = DefaultInterpolation;
+		Fractal fractal = DefaultFractal;
+		int seed = DefaultSeed;
+		float frequency = DefaultFrequency;
+		float lacunarity = DefaultLacunarity;
+		float weightedStrength = DefaultWeightedStrength;
+		float gain = DefaultGain;
+		int octaves = DefaultOctaves;
+		bool wireFrame = DefaultWireFrame;
+	};
 
-	Noise(int seed = 0) : m_seed(seed), m_lacunarity(2.0f), m_weightedStrength(0.0f) {
 
-		noiseFunction = Function::Value;
-		interpolationMethod = Interpolation::Linear;
-		fractalMethod = Fractal::None;
-		fractalOctaves = 1;
+	Descriptor desc;
 
+	Noise() {
+		this->desc = Descriptor{};
+	}
+
+	explicit Noise(Descriptor descriptor) {
+		this->desc = descriptor;
 	}
 
 
@@ -134,9 +146,12 @@ public:
 
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
 	float eval(glm::vec2 p) {
-		switch(fractalMethod) {
+
+		p = p * desc.frequency;
+
+		switch(desc.fractal) {
 			case Fractal::None:
-				switch (noiseFunction) {
+				switch (desc.function) {
 					case Function::Value:
 						return evalLinear(p);
 					case Function::ValueCubic:
@@ -158,14 +173,14 @@ public:
 		int x1 = x0 + PrimeX;
 		int y1 = y0 + PrimeY;
 
-		float c00 = hashPrimedFloat(m_seed, x0, y0);
-		float c10 = hashPrimedFloat(m_seed, x1, y0);
-		float c01 = hashPrimedFloat(m_seed, x0, y1);
-		float c11 = hashPrimedFloat(m_seed, x1, y1);
+		float c00 = hashPrimedFloat(desc.seed, x0, y0);
+		float c10 = hashPrimedFloat(desc.seed, x1, y0);
+		float c01 = hashPrimedFloat(desc.seed, x0, y1);
+		float c11 = hashPrimedFloat(desc.seed, x1, y1);
 
 		glm::vec2 t = glm::fract(p);
 
-		switch (interpolationMethod) {
+		switch (desc.interpolation) {
 			case Interpolation::Linear:
 				break;
 			case Interpolation::Smoothstep:
@@ -201,28 +216,28 @@ public:
 		int y3 = y2 + PrimeY;
 
 		// First Row
-		float c00 = hashPrimedFloat(m_seed, x0, y0);
-		float c10 = hashPrimedFloat(m_seed, x1, y0);
-		float c20 = hashPrimedFloat(m_seed, x2, y0);
-		float c30 = hashPrimedFloat(m_seed, x3, y0);
+		float c00 = hashPrimedFloat(desc.seed, x0, y0);
+		float c10 = hashPrimedFloat(desc.seed, x1, y0);
+		float c20 = hashPrimedFloat(desc.seed, x2, y0);
+		float c30 = hashPrimedFloat(desc.seed, x3, y0);
 
 		// Second Row
-		float c01 = hashPrimedFloat(m_seed, x0, y1);
-		float c11 = hashPrimedFloat(m_seed, x1, y1);
-		float c21 = hashPrimedFloat(m_seed, x2, y1);
-		float c31 = hashPrimedFloat(m_seed, x3, y1);
+		float c01 = hashPrimedFloat(desc.seed, x0, y1);
+		float c11 = hashPrimedFloat(desc.seed, x1, y1);
+		float c21 = hashPrimedFloat(desc.seed, x2, y1);
+		float c31 = hashPrimedFloat(desc.seed, x3, y1);
 
 		// Third Row
-		float c02 = hashPrimedFloat(m_seed, x0, y2);
-		float c12 = hashPrimedFloat(m_seed, x1, y2);
-		float c22 = hashPrimedFloat(m_seed, x2, y2);
-		float c32 = hashPrimedFloat(m_seed, x3, y2);
+		float c02 = hashPrimedFloat(desc.seed, x0, y2);
+		float c12 = hashPrimedFloat(desc.seed, x1, y2);
+		float c22 = hashPrimedFloat(desc.seed, x2, y2);
+		float c32 = hashPrimedFloat(desc.seed, x3, y2);
 
 		// Fourth Row
-		float c03 = hashPrimedFloat(m_seed, x0, y3);
-		float c13 = hashPrimedFloat(m_seed, x1, y3);
-		float c23 = hashPrimedFloat(m_seed, x2, y3);
-		float c33 = hashPrimedFloat(m_seed, x3, y3);
+		float c03 = hashPrimedFloat(desc.seed, x0, y3);
+		float c13 = hashPrimedFloat(desc.seed, x1, y3);
+		float c23 = hashPrimedFloat(desc.seed, x2, y3);
+		float c33 = hashPrimedFloat(desc.seed, x3, y3);
 
 		// Interpolate each row
 		float r0 = cubicLerp(c00, c10, c20, c30, xFrac);
@@ -242,17 +257,17 @@ public:
 	// Todo: Check correctness compared to old version
 	float evalFBm(glm::vec2 p) {
 
-		int s = m_seed;
+		int s = desc.seed;
 
 		// Decrease amplitude as octaves increase
-		float amp = lerp(0.4f, 1.0f, 1.0f / fractalOctaves);
+		float amp = lerp(0.4f, 1.0f, 1.0f / desc.octaves);
 		float freq = 1.0f;
 		float sum = 0.0f;
 
-		for (int i = 0; i < fractalOctaves; i++) {
+		for (int i = 0; i < desc.octaves; i++) {
 
 			float noise;
-			switch (noiseFunction) {
+			switch (desc.function) {
 				case Function::Value:
 					noise = evalLinear(p * freq);
 					break;
@@ -269,10 +284,10 @@ public:
 			// Amplify the smaller values, don't oversaturate the larger values.
 			// When strength=0.0f, not weighted
 			// When strength=1.0f, weight
-			amp *= lerp(1.0f, (noise * 0.5f), m_weightedStrength);
-			amp *= Gain;
+			amp *= lerp(1.0f, (noise * 0.5f), desc.weightedStrength);
+			amp *= desc.gain;
 
-			freq *= m_lacunarity; // How much detail is added or removed at each octave (Adjusts frequency)
+			freq *= desc.lacunarity; // How much detail is added or removed at each octave (Adjusts frequency)
 
 		}
 

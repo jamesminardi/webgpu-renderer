@@ -10,6 +10,11 @@
 #include "shader.h"
 #include "camera.h"
 #include "terrain.h"
+#include <string>
+
+
+
+
 
 /*
  * A structure that describes the data layout in the vertex buffer,
@@ -102,12 +107,9 @@ private:
 			"Unknown";
 #endif
 
-
-	int m_size = 64;
-	float m_scale = 1.0f;
-	bool m_wireFrame = false;
-
-
+	Noise::Descriptor noiseDesc{};
+	float amplitude = 1.0f;
+	Noise noise;
 	Chunk chunk;
 
 

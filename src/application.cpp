@@ -59,7 +59,7 @@ void Application::onFrame() {
 //	m_uniforms.modelMatrix = R1 * S * T1;
 //	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
-	if (m_wireFrame != chunk.wireFrame)
+	if (noiseDesc.wireFrame != chunk.wireFrame)
 	{
 		terminateGeometry();
 		terminateRenderPipeline();
@@ -431,7 +431,7 @@ void Application::initRenderPipeline() {
 
 	// Primitive Assembly & Rasterization
 
-	if (m_wireFrame) {
+	if (noiseDesc.wireFrame) {
 		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList; // Treat each 3 vertices as a triangle
 	} else {
 		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
@@ -539,9 +539,12 @@ void Application::initGeometry() {
 //	m_indexData = generateGridIndices(100);
 //	m_colorData = generateGridColors(100);
 
-	Noise noise;
-	noise.noiseFunction = Noise::Function::ValueCubic;
-	chunk.load(noise, {0, 0}, m_wireFrame);
+
+	noise = Noise(noiseDesc);
+//	noise.desc.function = Noise::Function::ValueCubic;
+//	noise.desc.frequency = 2.0f;
+	chunk.amplitude = amplitude;
+	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
 
 	// Create position buffer
 	wgpu::BufferDescriptor bufferDesc{};
@@ -681,6 +684,10 @@ void Application::terminateGui() {
 	ImGui_ImplWGPU_Shutdown();
 }
 
+
+
+
+
 void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	// Start ImGui frame
 	ImGui_ImplWGPU_NewFrame();
@@ -703,16 +710,81 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
-	if (ImGui::SliderInt("sides", &m_size, 16, 512)) {		// Edit 1 int using a slider
+//	if (ImGui::SliderInt("sides", &m_size, 16, 512)) {		// Edit 1 int using a slider
+//		chunk.needs_update = true;
+//	}
+//
+//	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
+//		chunk.needs_update = true;
+//	}
+
+	const char* items[] = { "Linear", "SmoothStep", "Smoother", "Cubic" };
+
+	static int noiseFunction = 0;
+	if (ImGui::Combo("Function", &noiseFunction, items, 4)) {
+		std::cout << "Changing Function" << std::endl;
+		switch (noiseFunction) {
+		case 0:
+			std::cout << "Linear" << std::endl;
+			noiseDesc.function = Noise::Function::Value;
+			noiseDesc.interpolation = Noise::Interpolation::Linear;
+			break;
+		case 1:
+			std::cout << "Smooth" << std::endl;
+			noiseDesc.function = Noise::Function::Value;
+			noiseDesc.interpolation = Noise::Interpolation::Smoothstep;
+			break;
+		case 2:
+			std::cout << "Smoother" << std::endl;
+			noiseDesc.function = Noise::Function::Value;
+			noiseDesc.interpolation = Noise::Interpolation::Smootherstep;
+			break;
+		case 3:
+			std::cout << "Cubic" << std::endl;
+			noiseDesc.function = Noise::Function::ValueCubic;
+			break;
+		}
 		chunk.needs_update = true;
 	}
 
-	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
+
+	static bool fbm = false;
+	if (ImGui::Checkbox("FBM", &fbm)) {
+		if (fbm) {
+			noiseDesc.fractal = Noise::Fractal::FBM;
+		}
+		else {
+			noiseDesc.fractal = Noise::Fractal::None;
+		}
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("Amplitude", &amplitude, 0.1f, 20.0f)) {
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("Frequency", &noiseDesc.frequency, 0.1f, 5.0f)) {
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderInt("Octaves", &noiseDesc.octaves, 1, 6)) {
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("Lacunarity", &noiseDesc.lacunarity, 0.0f, 5.0f)) {
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("Gain", &noiseDesc.gain, 0.0f, 1.0f)) {
+		chunk.needs_update = true;
+	}
+
+	if (ImGui::SliderFloat("Weighted Strength", &noiseDesc.weightedStrength, 0.0f, 1.0f)) {
 		chunk.needs_update = true;
 	}
 
 
-	ImGui::Checkbox("WireFrame", &m_wireFrame);            // Edit bools storing our window open/close state
+	ImGui::Checkbox("WireFrame", &noiseDesc.wireFrame);            // Edit bools storing our window open/close state
 
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 

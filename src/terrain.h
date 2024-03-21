@@ -14,6 +14,7 @@
 class Mesh  {
 public:
 	std::vector<glm::vec3> vertices;
+	std::vector<glm::vec3> normals;
 	std::vector<uint16_t> indices;
 	std::vector<glm::vec3> colors;
 //	wgpu::Buffer verticesBuffer = nullptr;
@@ -60,6 +61,53 @@ public:
 //		}
 //		return vertices;
 //	}
+
+	static std::vector<glm::vec3> generateGridNormals(int numCells, std::vector<glm::vec3> vertices) {
+		std::vector<glm::vec3> normals;
+		for (int row = 0; row <= numCells; row++) {
+			for (int col = 0; col <= numCells; col++) {
+
+				glm::vec3 left;
+				glm::vec3 right;
+				glm::vec3 up;
+				glm::vec3 down;
+
+				// If the current vertex is on the edge of the grid, wrap around to the opposite side
+
+				if (col == 0) {
+					left = vertices[row * (numCells + 1) + numCells];
+				} else {
+					left = vertices[row * (numCells + 1) + col - 1];
+				}
+
+				if (col == numCells) {
+					right = vertices[row * (numCells + 1)];
+				} else {
+					right = vertices[row * (numCells + 1) + col + 1];
+				}
+
+				if (row == 0) {
+					up = vertices[(numCells) * (numCells + 1) + col];
+				} else {
+					up = vertices[(row + 1) * (numCells + 1) + col];
+				}
+
+				if (row == numCells) {
+					down = vertices[col];
+				} else {
+					down = vertices[(row - 1) * (numCells + 1) + col];
+				}
+
+				// Create normal from four surrounding vertices.
+				// Creates a blurring effect since the height at the current vertex is not considered
+				glm::vec3 normal = glm::normalize(glm::cross(right - left, up - down));
+
+				normals.push_back(normal);
+			}
+		}
+		return normals;
+	}
+
 
 	static std::vector<uint16_t> generateGridIndices(int numCells) {
 		std::vector<uint16_t> indices;
@@ -162,7 +210,7 @@ public:
 
 	void load(Noise noise, glm::ivec2 chunkPos, bool wire = false) {
 		pos = chunkPos;
-		heightData.resize((size+1) * (size+1));
+//		heightData.resize((size+1) * (size+1));
 		mesh.vertices.resize((size+1) * (size+1));
 		chunkSeed = noise.desc.seed * chunkPos.x + chunkPos.y;
 
@@ -186,6 +234,7 @@ public:
 				mesh.vertices[row * (size+1) + col] = {worldPosX, h, worldPosY};
 			}
 		}
+		mesh.normals = Mesh::generateGridNormals(size, mesh.vertices);
 		mesh.indices = Mesh::generateGridIndices(size);
 		mesh.colors = Mesh::generateGridColors(size);
 
@@ -201,7 +250,7 @@ public:
 	}
 
 	void unload() {
-		heightData.clear();
+//		heightData.clear();
 		mesh.vertices.clear();
 		mesh.colors.clear();
 		mesh.indices.clear();
@@ -213,7 +262,7 @@ public:
 	int size = DefaultChunkSize; // Number of vertices per side of the chunk
 	int chunkSeed = 0;
 	glm::ivec2 pos{};
-	std::vector<float> heightData; // Use mesh instead
+//	std::vector<float> heightData; // Use mesh instead
 	Mesh mesh;
 	bool needs_update = false;
 	bool wireFrame = false;

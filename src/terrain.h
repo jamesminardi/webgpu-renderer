@@ -219,7 +219,6 @@ public:
 
 	explicit Chunk(int chunkSize) : size(chunkSize) {}
 
-
 	void load(Noise noise, glm::ivec2 chunkPos, bool wire = false) {
 		pos = chunkPos;
 //		heightData.resize((size+1) * (size+1));
@@ -283,29 +282,7 @@ public:
 
 };
 
-class World {
-public:
-	World() = default;
 
-	void load(Noise noise, int worldSize = 8) {
-		size = worldSize;
-		chunks.resize(worldSize * worldSize);
-		for (int row = 0; row < size; row++) {
-			for (int col = 0; col < size; col++) {
-				chunks[row * size + col].load(noise, {row, col});
-			}
-		}
-	}
-
-	void unload() {
-		for (auto& chunk : chunks) {
-			chunk.unload();
-		}
-	}
-
-	int size; // Number of chunks per side of the world
-	std::vector<Chunk> chunks;
-};
 
 
 

@@ -9,6 +9,7 @@
 struct VertexInput {
     @location(0) position: vec3f,
     @location(1) color: vec3f,
+    @location(2) normal: vec3f,
 }
 
 
@@ -41,7 +42,9 @@ struct ShaderUniforms {
 fn vs_main(in: VertexInput) -> VertexOutput {
 	var out: VertexOutput;
 	out.position = uShaderUniforms.projectionMatrix * uShaderUniforms.viewMatrix * uShaderUniforms.modelMatrix * vec4f(in.position.xyz,  1.0);
-	out.color = in.color * (in.position.y * 0.1f);
+//	out.color = in.color * (in.position.y * 0.1f);
+    var norm = in.normal * 0.5 + 0.5;
+    out.color = vec3f(in.normal.r, in.normal.b, in.normal.g);
 	return out;
 }
 

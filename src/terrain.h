@@ -87,22 +87,33 @@ public:
 				}
 
 				if (row == 0) {
-					up = vertices[(numCells) * (numCells + 1) + col];
-				} else {
-					up = vertices[(row + 1) * (numCells + 1) + col];
-				}
-
-				if (row == numCells) {
-					down = vertices[col];
+					down = vertices[(numCells) * (numCells + 1) + col];
 				} else {
 					down = vertices[(row - 1) * (numCells + 1) + col];
 				}
 
+				if (row == numCells) {
+					up = vertices[col];
+				} else {
+					up = vertices[(row + 1) * (numCells + 1) + col];
+				}
+
 				// Create normal from four surrounding vertices.
 				// Creates a blurring effect since the height at the current vertex is not considered
-				glm::vec3 normal = glm::normalize(glm::cross(right - left, up - down));
+				glm::vec3 normal;
 
-				normals.push_back(normal);
+				// Alternative method?
+				glm::vec3 normal2;
+				normal2.x = left.y - right.y;
+				normal2.z = down.y - up.y;
+				normal2.y = 2.0f;
+				normal2 = glm::normalize(normal2);
+
+				// Alternative method that doesn't work (why?)
+//				glm::vec3 cross = glm::cross(right - left, up - down);
+//				normal = glm::normalize(cross);
+
+				normals.push_back(normal2);
 			}
 		}
 		return normals;
@@ -113,6 +124,7 @@ public:
 		std::vector<uint16_t> indices;
 		for (int i = 0; i < numCells; ++i) {
 			for (int j = 0; j < numCells; ++j) {
+				// These go from left to right, bottom to top
 				uint16_t bottomLeft = i * (numCells + 1) + j;
 				uint16_t bottomRight = bottomLeft + 1;
 				uint16_t topLeft = (i + 1) * (numCells + 1) + j;
@@ -241,7 +253,9 @@ public:
 		std::cout << "Index Count: " << mesh.indices.size() << std::endl;
 		std::cout << "Vertex Count: " << (mesh.vertices.size()) << std::endl;
 		std::cout << "Color Count: " << (mesh.colors.size()) << std::endl;
+		std::cout << "Normal Count: " << (mesh.normals.size()) << std::endl;
 		assert(mesh.vertices.size() == mesh.colors.size());
+		assert(mesh.vertices.size() == mesh.normals.size());
 
 		// Adjust index data to be a multiple of 4
 		while (mesh.indices.size() % 4 != 0) {

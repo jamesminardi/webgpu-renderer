@@ -142,6 +142,8 @@ void Application::onFrame() {
 
 	renderPass.setVertexBuffer(1, m_colorBuffer, 0, chunk.mesh.colors.size() * sizeof(float));
 
+	renderPass.setVertexBuffer(2, m_normalBuffer, 0, chunk.mesh.normals.size() * sizeof(float));
+
 	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
 
 	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
@@ -392,9 +394,9 @@ void Application::initRenderPipeline() {
 	wgpu::RenderPipelineDescriptor pipelineDesc{};
 
 
-	// Vector because there are 2 attributes in separate buffers
+	// Vector because there are 3 attributes in separate buffers
 	// (As opposed to multiple vertex attributes in one buffer)
-	std::vector<wgpu::VertexBufferLayout> vertexBufferLayouts(2);
+	std::vector<wgpu::VertexBufferLayout> vertexBufferLayouts(3);
 
 	// Position attribute
 	wgpu::VertexAttribute positionAttrib;
@@ -418,6 +420,18 @@ void Application::initRenderPipeline() {
 	vertexBufferLayouts[1].attributes = &colorAttrib;
 	vertexBufferLayouts[1].arrayStride = 3 * sizeof(float); // size of color, since only color attribs in this buffer
 	vertexBufferLayouts[1].stepMode = wgpu::VertexStepMode::Vertex;
+
+
+	// Normal attribute
+	wgpu::VertexAttribute normalAttrib;
+	normalAttrib.shaderLocation = 2; // Corresponds to @location(...)
+	normalAttrib.format = wgpu::VertexFormat::Float32x3; // size of normal, Means vec3<f32> in the shader
+	normalAttrib.offset = 0; // Index of the first element
+	// build normal buffer layout
+	vertexBufferLayouts[2].attributeCount = 1;
+	vertexBufferLayouts[2].attributes = &normalAttrib;
+	vertexBufferLayouts[2].arrayStride = 3 * sizeof(float); // size of normal, since only normal attribs in this buffer
+	vertexBufferLayouts[2].stepMode = wgpu::VertexStepMode::Vertex;
 
 
 	pipelineDesc.vertex.bufferCount = static_cast<uint32_t>(vertexBufferLayouts.size());
@@ -535,45 +549,48 @@ void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
-//	m_positionData = generateGridVertices(100);
-//	m_indexData = generateGridIndices(100);
-//	m_colorData = generateGridColors(100);
-
-
 	noise = Noise(noiseDesc);
 //	noise.desc.function = Noise::Function::ValueCubic;
 //	noise.desc.frequency = 2.0f;
 	chunk.amplitude = amplitude;
 	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
 
-	// Create position buffer
+
 	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.size = chunk.mesh.vertices.size() * sizeof(glm::vec3);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
-	m_positionBuffer = m_device.createBuffer(bufferDesc);
 
+
+	// Create position buffer
+	bufferDesc.size = chunk.mesh.vertices.size() * sizeof(glm::vec3);
+	m_positionBuffer = m_device.createBuffer(bufferDesc);
 	// Upload pos data to position buffer
 	m_queue.writeBuffer(m_positionBuffer, 0, chunk.mesh.vertices.data(), bufferDesc.size);
-
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
+
 
 	// Create color buffer
 	bufferDesc.size = chunk.mesh.colors.size() * sizeof(glm::vec3);
 	m_colorBuffer = m_device.createBuffer(bufferDesc);
-
 	// Upload color data to color buffer
 	m_queue.writeBuffer(m_colorBuffer, 0, chunk.mesh.colors.data(), bufferDesc.size);
-
 	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
 
 
+	// Create normal buffer
+	bufferDesc.size = chunk.mesh.normals.size() * sizeof(glm::vec3);
+	m_normalBuffer = m_device.createBuffer(bufferDesc);
+	// Upload normal data to normal buffer
+	m_queue.writeBuffer(m_normalBuffer, 0, chunk.mesh.normals.data(), bufferDesc.size);
+	std::cout << "Normal Buffer: " << m_normalBuffer << std::endl;
+
+
+	// Create index buffer
 	bufferDesc.size = chunk.mesh.indices.size() * sizeof(uint16_t);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_indexBuffer = m_device.createBuffer(bufferDesc);
-
+	// Upload index data to index buffer
 	m_queue.writeBuffer(m_indexBuffer, 0, chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
-
 	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
 }
@@ -585,9 +602,11 @@ void Application::terminateGeometry() {
 	m_positionBuffer.destroy();
 	m_indexBuffer.destroy();
 	m_colorBuffer.destroy();
+	m_normalBuffer.destroy();
 	m_positionBuffer.release();
 	m_indexBuffer.release();
 	m_colorBuffer.release();
+	m_normalBuffer.release();
 }
 
 void Application::initUniforms() {

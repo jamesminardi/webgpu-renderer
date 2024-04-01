@@ -219,11 +219,13 @@ public:
 
 	explicit Chunk(int chunkSize) : size(chunkSize) {}
 
-	void load(Noise noise, glm::ivec2 chunkPos, bool wire = false) {
-		pos = chunkPos;
-//		heightData.resize((size+1) * (size+1));
+	void load(Noise noise, glm::ivec2 worldPosition, bool wire = false) {
+
+		this->worldPos = worldPosition;
+
 		mesh.vertices.resize((size+1) * (size+1));
-		chunkSeed = noise.desc.seed * chunkPos.x + chunkPos.y;
+
+		chunkSeed = noise.desc.seed * worldPos.x + worldPos.y;
 
 		if (wire) {
 			mesh.indices = Mesh::generateWireFrameGridIndices(size);
@@ -231,17 +233,13 @@ public:
 			mesh.indices = Mesh::generateGridIndices(size);
 		}
 
-		this->wireFrame = wire;
-
-
 		for (int row = 0; row <= size; row++) {
 
-			int worldPosY = row + (pos.y * size);
+			int worldPosY = row + (worldPos.y * size);
 			for (int col = 0; col <= size; col++) {
 
-				int worldPosX = col + (pos.x * size);
-				float h = noise.eval({worldPosX, worldPosY}) * amplitude;
-//				heightData[row * size + col] = h;
+				int worldPosX = col + (worldPos.x * size);
+				float h = noise.eval({worldPosX, worldPosY});
 				mesh.vertices[row * (size+1) + col] = {worldPosX, h, worldPosY};
 			}
 		}
@@ -263,22 +261,18 @@ public:
 	}
 
 	void unload() {
-//		heightData.clear();
 		mesh.vertices.clear();
 		mesh.colors.clear();
 		mesh.indices.clear();
+		mesh.normals.clear();
 	}
 
-
-	float amplitude = 1.0f;
-	static constexpr int DefaultChunkSize = 128;
+	static constexpr int DefaultChunkSize = 32;
 	int size = DefaultChunkSize; // Number of vertices per side of the chunk
 	int chunkSeed = 0;
-	glm::ivec2 pos{};
-//	std::vector<float> heightData; // Use mesh instead
+	glm::ivec2 worldPos{};
 	Mesh mesh;
-	bool needs_update = false;
-	bool wireFrame = false;
+	bool dirty = false;
 
 };
 

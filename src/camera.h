@@ -31,12 +31,12 @@ public:
 
 	DragState dragState;
 
-	glm::vec3 position;
+	glm::vec3 position{};
 
 	// Zoom is the position of the camera along its local forward axis, affected by scroll
 	float zoom = 0.0f;
 
+	glm::vec3 center{};
 private:
-
 
 };

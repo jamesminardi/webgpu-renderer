@@ -9,6 +9,9 @@
 #include "color.h"
 
 Application::Application() : m_window(nullptr) {
+
+	initWorld();
+
 	initWindowAndDevice();
 	initSwapChain();
 	initDepthBuffer();
@@ -21,6 +24,9 @@ Application::Application() : m_window(nullptr) {
 }
 
 Application::~Application() {
+
+	terminateWorld();
+
 	terminateGui();
 	terminateBindGroup();
 	terminateUniforms();
@@ -30,6 +36,19 @@ Application::~Application() {
 	terminateDepthBuffer();
 	terminateSwapChain();
 	terminateWindowAndDevice();
+}
+
+void Application::initWorld() {
+	noiseDesc = Noise::Descriptor();
+	// updated
+	world = World();
+	world.load(noiseDesc, 1);
+
+
+}
+
+void Application::terminateWorld() {
+	world.unload();
 }
 
 void Application::onFrame() {
@@ -59,20 +78,24 @@ void Application::onFrame() {
 //	m_uniforms.modelMatrix = R1 * S * T1;
 //	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
-	if (noiseDesc.wireFrame != chunk.wireFrame)
+	if (world.dirty)
 	{
+		world.unload();
+		world.load(noiseDesc, 1);
 		terminateGeometry();
 		terminateRenderPipeline();
 		initRenderPipeline();
 		initGeometry();
 	}
 
-	if (chunk.needs_update)
-	{
-		terminateGeometry();
-		initGeometry();
-		chunk.needs_update = false;
-	}
+	world.update();
+
+//	if (chunk.dirty)
+//	{
+//		terminateGeometry();
+//		initGeometry();
+//		chunk.dirty = false;
+//	}
 
 	// Get target texture view
 	auto nextTexture = m_swapChain.getCurrentTextureView();
@@ -138,20 +161,20 @@ void Application::onFrame() {
 	renderPass.setPipeline(m_pipeline);
 
 	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_positionBuffer, 0, chunk.mesh.vertices.size() * sizeof(float));
+	renderPass.setVertexBuffer(0, m_positionBuffer, 0, world.chunks[0].mesh.vertices.size() * sizeof(float));
 
-	renderPass.setVertexBuffer(1, m_colorBuffer, 0, chunk.mesh.colors.size() * sizeof(float));
+	renderPass.setVertexBuffer(1, m_colorBuffer, 0, world.chunks[0].mesh.colors.size() * sizeof(float));
 
-	renderPass.setVertexBuffer(2, m_normalBuffer, 0, chunk.mesh.normals.size() * sizeof(float));
+	renderPass.setVertexBuffer(2, m_normalBuffer, 0, world.chunks[0].mesh.normals.size() * sizeof(float));
 
-	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
+	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world.chunks[0].mesh.indices.size() * sizeof(uint16_t));
 
 	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
 //	renderPass.draw(m_vertexCount,1,0,0);
-	renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+	renderPass.drawIndexed(world.chunks[0].mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -445,10 +468,10 @@ void Application::initRenderPipeline() {
 
 	// Primitive Assembly & Rasterization
 
-	if (noiseDesc.wireFrame) {
-		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList; // Treat each 3 vertices as a triangle
+	if (world.isWireFrame()) {
+		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList;
 	} else {
-		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList; // Treat each 3 vertices as a triangle
+		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
 	}
 	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined; // Vertices considered sequentially
 	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW; // Counter-clockwise vertices are front-facing
@@ -549,11 +572,12 @@ void Application::initGeometry() {
 
 	std::cout << "Creating geometry..." << std::endl;
 
-	noise = Noise(noiseDesc);
-//	noise.desc.function = Noise::Function::ValueCubic;
-//	noise.desc.frequency = 2.0f;
-	chunk.amplitude = amplitude;
-	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
+//	noise = Noise(noiseDesc);
+
+//	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
+
+
+
 
 
 	wgpu::BufferDescriptor bufferDesc{};
@@ -562,42 +586,40 @@ void Application::initGeometry() {
 
 
 	// Create position buffer
-	bufferDesc.size = chunk.mesh.vertices.size() * sizeof(glm::vec3);
+	bufferDesc.size = world.chunks[0].mesh.vertices.size() * sizeof(glm::vec3);
 	m_positionBuffer = m_device.createBuffer(bufferDesc);
 	// Upload pos data to position buffer
-	m_queue.writeBuffer(m_positionBuffer, 0, chunk.mesh.vertices.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_positionBuffer, 0, world.chunks[0].mesh.vertices.data(), bufferDesc.size);
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
 
 
 	// Create color buffer
-	bufferDesc.size = chunk.mesh.colors.size() * sizeof(glm::vec3);
+	bufferDesc.size = world.chunks[0].mesh.colors.size() * sizeof(glm::vec3);
 	m_colorBuffer = m_device.createBuffer(bufferDesc);
 	// Upload color data to color buffer
-	m_queue.writeBuffer(m_colorBuffer, 0, chunk.mesh.colors.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_colorBuffer, 0, world.chunks[0].mesh.colors.data(), bufferDesc.size);
 	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
 
 
 	// Create normal buffer
-	bufferDesc.size = chunk.mesh.normals.size() * sizeof(glm::vec3);
+	bufferDesc.size = world.chunks[0].mesh.normals.size() * sizeof(glm::vec3);
 	m_normalBuffer = m_device.createBuffer(bufferDesc);
 	// Upload normal data to normal buffer
-	m_queue.writeBuffer(m_normalBuffer, 0, chunk.mesh.normals.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_normalBuffer, 0, world.chunks[0].mesh.normals.data(), bufferDesc.size);
 	std::cout << "Normal Buffer: " << m_normalBuffer << std::endl;
 
 
 	// Create index buffer
-	bufferDesc.size = chunk.mesh.indices.size() * sizeof(uint16_t);
+	bufferDesc.size = world.chunks[0].mesh.indices.size() * sizeof(uint16_t);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_indexBuffer = m_device.createBuffer(bufferDesc);
 	// Upload index data to index buffer
-	m_queue.writeBuffer(m_indexBuffer, 0, chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+	m_queue.writeBuffer(m_indexBuffer, 0, world.chunks[0].mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
 	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
 }
 
 void Application::terminateGeometry() {
-
-	chunk.unload();
 
 	m_positionBuffer.destroy();
 	m_indexBuffer.destroy();
@@ -643,7 +665,7 @@ void Application::initUniforms() {
 //	R1 = glm::mat4(1.0);
 	m_uniforms.modelMatrix = T1 * R1 * S;
 
-	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
+	m_uniforms.viewMatrix = world.camera.updateViewMatrix();
 
 	// Projection
 	fov = 2 * glm::atan(1 / focalLength);
@@ -720,12 +742,12 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 
 	ImGui::Text("Camera:");					// Display some text (you can use a format strings too)
 	// Text the camera rotation
-	ImGui::Text("Rotation: (%.1f, %.1f)", m_camera.rotation.x, m_camera.rotation.y);
+	ImGui::Text("Rotation: (%.1f, %.1f)", world.camera.rotation.x, world.camera.rotation.y);
 	// Text the camera position
-	ImGui::Text("Position: (%.1f, %.1f, %.1f)", m_camera.position.x, m_camera.position.y, m_camera.position.z);
+	ImGui::Text("Position: (%.1f, %.1f, %.1f)", world.camera.position.x, world.camera.position.y, world.camera.position.z);
 
 	// Text the camera zoom
-	ImGui::Text("Zoom: %.1f", m_camera.zoom);
+	ImGui::Text("Zoom: %.1f", world.camera.zoom);
 
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
@@ -763,7 +785,7 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 			noiseDesc.function = Noise::Function::ValueCubic;
 			break;
 		}
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
 
@@ -775,35 +797,38 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 		else {
 			noiseDesc.fractal = Noise::Fractal::None;
 		}
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
-	if (ImGui::SliderFloat("Amplitude", &amplitude, 0.1f, 20.0f)) {
-		chunk.needs_update = true;
+	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.1f, 20.0f)) {
+		world.dirty = true;
 	}
 
 	if (ImGui::SliderFloat("Frequency", &noiseDesc.frequency, 0.1f, 5.0f)) {
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
 	if (ImGui::SliderInt("Octaves", &noiseDesc.octaves, 1, 6)) {
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
 	if (ImGui::SliderFloat("Lacunarity", &noiseDesc.lacunarity, 0.0f, 5.0f)) {
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
 	if (ImGui::SliderFloat("Gain", &noiseDesc.gain, 0.0f, 1.0f)) {
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
 	if (ImGui::SliderFloat("Weighted Strength", &noiseDesc.weightedStrength, 0.0f, 1.0f)) {
-		chunk.needs_update = true;
+		world.dirty = true;
 	}
 
+	bool wireFrame = world.isWireFrame();
+	if (ImGui::Checkbox("WireFrame", &wireFrame)) {            // Edit bools storing our window open/close state
+		world.setWireFrame(wireFrame);
+	}
 
-	ImGui::Checkbox("WireFrame", &noiseDesc.wireFrame);            // Edit bools storing our window open/close state
 
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color
 
@@ -842,16 +867,16 @@ void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::
 }
 
 void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
-	if (m_camera.dragState.active) {
+	if (world.camera.dragState.active) {
 		glm::vec2 currentMouse = mousePos;
 
-		float deltaX = (currentMouse.x - m_camera.dragState.startMouse.x) * m_camera.dragState.sensitivity;
-		float deltaY = (currentMouse.y - m_camera.dragState.startMouse.y) * m_camera.dragState.sensitivity;
-		m_camera.rotation.x = m_camera.dragState.startRotation.x - deltaX;
-		m_camera.rotation.y = m_camera.dragState.startRotation.y - deltaY;
+		float deltaX = (currentMouse.x - world.camera.dragState.startMouse.x) * world.camera.dragState.sensitivity;
+		float deltaY = (currentMouse.y - world.camera.dragState.startMouse.y) * world.camera.dragState.sensitivity;
+		world.camera.rotation.x = world.camera.dragState.startRotation.x - deltaX;
+		world.camera.rotation.y = world.camera.dragState.startRotation.y - deltaY;
 
-		// Clamp to avoid going too far when orbitting up/down
-		m_camera.rotation.y = glm::clamp(m_camera.rotation.y, glm::radians(0.1f), glm::radians(179.9f));
+		// Clamp to avoid going too far when orbiting up/down
+		world.camera.rotation.y = glm::clamp(world.camera.rotation.y, glm::radians(0.1f), glm::radians(179.9f));
 
 		updateViewMatrix();
 	}
@@ -861,12 +886,12 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 	if (button == Input::MouseButton::Left) {
 		switch (buttonAction) {
 			case Input::Action::Press:
-				m_camera.dragState.active = true;
-				m_camera.dragState.startMouse = mousePos;
-				m_camera.dragState.startRotation = m_camera.rotation;
+				world.camera.dragState.active = true;
+				world.camera.dragState.startMouse = mousePos;
+				world.camera.dragState.startRotation = world.camera.rotation;
 				break;
 			case Input::Action::Release:
-				m_camera.dragState.active = false;
+				world.camera.dragState.active = false;
 				break;
 			default:
 				break;
@@ -875,13 +900,13 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 }
 
 void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
-	m_camera.zoom += m_camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
-	m_camera.zoom = glm::clamp(m_camera.zoom, -5.0f, 2.0f);
+	world.camera.zoom += world.camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
+	world.camera.zoom = glm::clamp(world.camera.zoom, -5.0f, 2.0f);
 	updateViewMatrix();
 }
 
 void Application::updateViewMatrix() {
-	m_uniforms.viewMatrix = m_camera.updateViewMatrix();
+	m_uniforms.viewMatrix = world.camera.updateViewMatrix();
 	m_queue.writeBuffer(
 			m_uniformBuffer,
 			offsetof(ShaderUniforms, viewMatrix),

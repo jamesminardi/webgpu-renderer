@@ -44,7 +44,20 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 	out.position = uShaderUniforms.projectionMatrix * uShaderUniforms.viewMatrix * uShaderUniforms.modelMatrix * vec4f(in.position.xyz,  1.0);
 //	out.color = in.color * (in.position.y * 0.1f);
     var norm = in.normal * 0.5 + 0.5;
-    out.color = vec3f(in.normal.r, in.normal.b, in.normal.g);
+
+    var lightPos = vec3f(50.0, 30.0, 0.0);
+
+    var ambientStrength = 0.2f;
+    var ambient = ambientStrength * in.color;
+
+    var lightDir = normalize(lightPos - in.position.xyz);
+    var diff = max(dot(in.normal, lightDir), 0.0);
+    var diffuse = diff * in.color;
+
+    out.color = ambient + diffuse;
+
+
+//    out.color = vec3f(in.normal.r, in.normal.b, in.normal.g);
 	return out;
 }
 

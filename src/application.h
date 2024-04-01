@@ -10,6 +10,7 @@
 #include "shader.h"
 #include "camera.h"
 #include "terrain.h"
+#include "world.h"
 #include <string>
 
 
@@ -65,6 +66,10 @@ public:
 	void onScroll(glm::vec2 scrollOffset, glm::vec2 mousePos, bool ctrlKey, bool shiftKey, bool altKey);
 
 private:
+
+	void initWorld();
+	void terminateWorld();
+
 	void initWindowAndDevice();
 	void terminateWindowAndDevice();
 
@@ -108,14 +113,18 @@ private:
 #endif
 
 	Noise::Descriptor noiseDesc{};
-	float amplitude = 1.0f;
-	Noise noise;
-	Chunk chunk;
+
+//	Noise noise;
+//	Chunk chunk;
+
+	// updated
+	World world;
+
 
 
 	std::unique_ptr<Window> m_window;
 
-	Camera m_camera;
+//	Camera m_camera;
 
 	// Window and Device
 	wgpu::Instance m_instance = nullptr;

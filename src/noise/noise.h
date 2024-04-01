@@ -57,7 +57,8 @@ public:
 		float weightedStrength = DefaultWeightedStrength;
 		float gain = DefaultGain;
 		int octaves = DefaultOctaves;
-		bool wireFrame = DefaultWireFrame;
+//		bool wireFrame = DefaultWireFrame;
+		float amplitude = 1.0f;
 	};
 
 
@@ -147,23 +148,33 @@ public:
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
 	float eval(glm::vec2 p) {
 
+		float out = 0.0f;
+
 		p = p * desc.frequency;
 
 		switch(desc.fractal) {
 			case Fractal::None:
 				switch (desc.function) {
 					case Function::Value:
-						return evalLinear(p);
+						out = evalLinear(p);
+						break;
 					case Function::ValueCubic:
-						return evalCubic(p);
+						out = evalCubic(p);
+						break;
 					default:
-						return evalLinear(p);
+						out = evalLinear(p);
+						break;
 				}
+				break;
 			case Fractal::FBM:
-				return evalFBm(p);
+				out = evalFBm(p);
+				break;
 			default:
-				return evalLinear(p);
+				out = evalLinear(p);
+				break;
 		}
+
+		return out * desc.amplitude;
 	}
 
 	float evalLinear(glm::vec2 p) {

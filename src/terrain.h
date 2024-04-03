@@ -9,18 +9,114 @@
 #include "noise/noise.h"
 
 
-
+struct Vertex {
+    glm::vec3 position;
+    glm::vec3 normal;
+    glm::vec3 color;
+    glm::vec2 uv;
+};
 
 class Mesh  {
 public:
-	std::vector<glm::vec3> vertices;
+
+    std::vector<Vertex> vertices;
+//	std::vector<glm::vec3> verts;
 	std::vector<glm::vec3> normals;
-	std::vector<uint16_t> indices;
+	std::vector<uint16_t> indices; // Keep as uint16_t, b/c WebGPU requires multiple of 4, and need to pad.
 	std::vector<glm::vec3> colors;
 //	wgpu::Buffer verticesBuffer = nullptr;
 //	wgpu::Buffer indicesBuffer = nullptr;
 
 	Mesh() = default;
+
+    explicit Mesh(const std::vector<float>& heightMap, int numSides, bool wireFrame = false) {
+        int vertsPerSide = numSides + 1;
+        vertices.reserve(vertsPerSide * vertsPerSide);
+        indices.reserve(numSides * numSides * 6);
+
+        // Generate vertices
+        for (int row = 0; row <= numSides; row++) {
+            for (int col = 0; col <= numSides; col++) {
+
+                Vertex vertex{};
+
+                // Position
+                // ----------------
+                auto x = (float)col;
+                auto z = (float)row;
+                float y = heightMap[row * vertsPerSide + col];
+                vertex.position = {x, y, z};
+
+                // Normal
+                // ------------
+
+                vertex.normal = {0, 1, 0}; // Default to up
+
+                // Color
+                // ----------
+                float r = (float)col / (float)numSides;
+                float g = (float)row / (float)numSides;
+                float b = (1 - g) * (1 - r);  // You can adjust this value as needed
+                vertex.color = {r, g, b};
+
+
+                // Don't do for last column and row since triangles are made from the left and bottom
+                if (row < numSides && col < numSides) {
+                    // Indices
+                    // --------------
+                    uint16_t bottomLeft = row * vertsPerSide + col;
+                    uint16_t bottomRight = bottomLeft + 1;
+                    uint16_t topLeft = (row + 1) * vertsPerSide + col;
+                    uint16_t topRight = topLeft + 1;
+                    // These go from left to right, bottom to top
+                    //  _________________________________
+                    //  | \   2 | \   4 | \     | \     |
+                    //  |   \   |   \   |   \   |   \   |
+                    //  |  1  \ |  3  \ | ... \ |     \ |
+                    //  ---------------------------------
+                    // (Diagonal from top-left to bottom-right)
+
+                    // First triangle
+                    indices.push_back(bottomLeft);
+                    indices.push_back(bottomRight);
+                    indices.push_back(topLeft);
+
+                    // Second triangle
+                    indices.push_back(topLeft);
+                    indices.push_back(bottomRight);
+                    indices.push_back(topRight);
+                }
+
+                vertices.push_back(vertex);
+
+            }
+        }
+
+        std::cout << "Triangle Count: " << indices.size() / 3 << std::endl;
+        std::cout << "Vertex Count: " << vertices.size() << std::endl;
+        assert(vertsPerSide * vertsPerSide == vertices.size());
+        assert(numSides * numSides * 2 == indices.size() / 3);
+
+        // Adjust index data to be a multiple of 4 (required by WebGPU)
+        while (indices.size() % 4 != 0) {
+            indices.push_back(0);
+        }
+
+
+    }
+
+    /*
+     * Length is the number of vertices per side of the mesh
+     */
+    explicit Mesh(int length) {
+
+        //
+//        verts.reserve(length * length);
+        normals.reserve(length * length);
+        colors.reserve(length * length);
+        indices.reserve((length - 1) * (length - 1) * 6);
+    }
+
 
 //	Mesh(std::vector<float> vertices, std::vector<uint16_t> indices, std::vector<float> colors = {}) : vertices(vertices), indices(indices), colors(colors) {
 //		std::cout << "Index Count: " << indices.size() << std::endl;
@@ -223,14 +319,17 @@ public:
 
 		this->worldPos = worldPosition;
 
-		mesh.vertices.resize((size+1) * (size+1));
+        std::vector<float> heightMap;
+        heightMap.reserve((size + 1) * (size + 1));
+
+//		mesh.verts.resize((size + 1) * (size + 1));
 
 		chunkSeed = noise.desc.seed * worldPos.x + worldPos.y;
 
 		if (wire) {
-			mesh.indices = Mesh::generateWireFrameGridIndices(size);
+//			mesh.indices = Mesh::generateWireFrameGridIndices(size);
 		} else {
-			mesh.indices = Mesh::generateGridIndices(size);
+//			mesh.indices = Mesh::generateGridIndices(size);
 		}
 
 		for (int row = 0; row <= size; row++) {
@@ -240,28 +339,23 @@ public:
 
 				int worldPosX = col + (worldPos.x * size);
 				float h = noise.eval({worldPosX, worldPosY});
-				mesh.vertices[row * (size+1) + col] = {worldPosX, h, worldPosY};
+                heightMap.push_back(h);
+//				mesh.verts[row * (size + 1) + col] = {worldPosX, h, worldPosY};
 			}
 		}
-		mesh.normals = Mesh::generateGridNormals(size, mesh.vertices);
-		mesh.indices = Mesh::generateGridIndices(size);
-		mesh.colors = Mesh::generateGridColors(size);
 
-		std::cout << "Index Count: " << mesh.indices.size() << std::endl;
-		std::cout << "Vertex Count: " << (mesh.vertices.size()) << std::endl;
-		std::cout << "Color Count: " << (mesh.colors.size()) << std::endl;
-		std::cout << "Normal Count: " << (mesh.normals.size()) << std::endl;
-		assert(mesh.vertices.size() == mesh.colors.size());
-		assert(mesh.vertices.size() == mesh.normals.size());
+        // TODO Account for wire mesh
+        mesh = Mesh(heightMap, size);
 
-		// Adjust index data to be a multiple of 4
-		while (mesh.indices.size() % 4 != 0) {
-			mesh.indices.push_back(0);
-		}
+//		mesh.normals = Mesh::generateGridNormals(size, mesh.verts);
+//		mesh.indices = Mesh::generateGridIndices(size);
+//		mesh.colors = Mesh::generateGridColors(size);
+
+
 	}
 
 	void unload() {
-		mesh.vertices.clear();
+//		mesh.verts.clear();
 		mesh.colors.clear();
 		mesh.indices.clear();
 		mesh.normals.clear();
@@ -283,8 +377,8 @@ public:
 
 
 
-//class Terrain {
-//public:
+class Terrain {
+public:
 //
 //	Mesh mesh;
 //
@@ -313,4 +407,4 @@ public:
 //private:
 //
 //
-//};
+};

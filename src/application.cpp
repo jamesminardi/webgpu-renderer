@@ -161,7 +161,7 @@ void Application::onFrame() {
 	renderPass.setPipeline(m_pipeline);
 
 	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_positionBuffer, 0, world.chunks[0].mesh.vertices.size() * sizeof(float));
+	renderPass.setVertexBuffer(0, m_positionBuffer, 0, world.chunks[0].mesh.verts.size() * sizeof(float));
 
 	renderPass.setVertexBuffer(1, m_colorBuffer, 0, world.chunks[0].mesh.colors.size() * sizeof(float));
 
@@ -586,10 +586,10 @@ void Application::initGeometry() {
 
 
 	// Create position buffer
-	bufferDesc.size = world.chunks[0].mesh.vertices.size() * sizeof(glm::vec3);
+	bufferDesc.size = world.chunks[0].mesh.verts.size() * sizeof(glm::vec3);
 	m_positionBuffer = m_device.createBuffer(bufferDesc);
 	// Upload pos data to position buffer
-	m_queue.writeBuffer(m_positionBuffer, 0, world.chunks[0].mesh.vertices.data(), bufferDesc.size);
+	m_queue.writeBuffer(m_positionBuffer, 0, world.chunks[0].mesh.verts.data(), bufferDesc.size);
 	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
 
 

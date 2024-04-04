@@ -20,23 +20,24 @@ class Mesh  {
 public:
 
     std::vector<Vertex> vertices;
-//	std::vector<glm::vec3> verts;
 	std::vector<glm::vec3> normals;
 	std::vector<uint16_t> indices; // Keep as uint16_t, b/c WebGPU requires multiple of 4, and need to pad.
 	std::vector<glm::vec3> colors;
-//	wgpu::Buffer verticesBuffer = nullptr;
-//	wgpu::Buffer indicesBuffer = nullptr;
+    bool wireFrame = false;
+    int numSides = 0;
+    int vertsPerSide = 0;
 
 	Mesh() = default;
 
-    explicit Mesh(const std::vector<float>& heightMap, int numSides, bool wireFrame = false) {
-        int vertsPerSide = numSides + 1;
+    Mesh(const std::vector<float>& heightMap, int numSides, bool wireFrame = false) : wireFrame(wireFrame) {
+        numSides = numSides;
+        vertsPerSide = numSides + 1;
         vertices.reserve(vertsPerSide * vertsPerSide);
         indices.reserve(numSides * numSides * 6);
 
         // Generate vertices
-        for (int row = 0; row <= numSides; row++) {
-            for (int col = 0; col <= numSides; col++) {
+        for (int row = 0; row < vertsPerSide; row++) {
+            for (int col = 0; col < vertsPerSide; col++) {
 
                 Vertex vertex{};
 
@@ -50,7 +51,47 @@ public:
                 // Normal
                 // ------------
 
-                vertex.normal = {0, 1, 0}; // Default to up
+                float left;
+                float right;
+                float up;
+                float down;
+
+                if (col == 0) {
+                    left = heightMap[row * vertsPerSide + numSides];
+                } else {
+                    left = heightMap[row * vertsPerSide + col - 1];
+                }
+
+                if (col == numSides) {
+                    right = heightMap[row * vertsPerSide];
+                } else {
+                    right = heightMap[row * vertsPerSide + col + 1];
+                }
+
+                if (row == 0) {
+                    down = heightMap[(numSides) * vertsPerSide + col];
+                } else {
+                    down = heightMap[(row - 1) * vertsPerSide + col];
+                }
+
+                if (row == numSides) {
+                    up = heightMap[col];
+                } else {
+                    up = heightMap[(row + 1) * vertsPerSide + col];
+                }
+
+                // Create normal from four surrounding vertices.
+                // Creates a blurring effect since the height at the current vertex is not considered
+
+                // Alternative method?
+                glm::vec3 normal;
+                normal.x = left - right;
+                normal.z = down - up;
+                normal.y = 2.0f;
+                normal = glm::normalize(normal);
+
+                vertex.normal = normal; // Default to up
+
 
                 // Color
                 // ----------
@@ -59,32 +100,10 @@ public:
                 float b = (1 - g) * (1 - r);  // You can adjust this value as needed
                 vertex.color = {r, g, b};
 
-
-                // Don't do for last column and row since triangles are made from the left and bottom
-                if (row < numSides && col < numSides) {
-                    // Indices
-                    // --------------
-                    uint16_t bottomLeft = row * vertsPerSide + col;
-                    uint16_t bottomRight = bottomLeft + 1;
-                    uint16_t topLeft = (row + 1) * vertsPerSide + col;
-                    uint16_t topRight = topLeft + 1;
-                    // These go from left to right, bottom to top
-                    //  _________________________________
-                    //  | \   2 | \   4 | \     | \     |
-                    //  |   \   |   \   |   \   |   \   |
-                    //  |  1  \ |  3  \ | ... \ |     \ |
-                    //  ---------------------------------
-                    // (Diagonal from top-left to bottom-right)
-
-                    // First triangle
-                    indices.push_back(bottomLeft);
-                    indices.push_back(bottomRight);
-                    indices.push_back(topLeft);
-
-                    // Second triangle
-                    indices.push_back(topLeft);
-                    indices.push_back(bottomRight);
-                    indices.push_back(topRight);
+                if (wireFrame) {
+                    Mesh::addLineIndices(indices, numSides, row, col);
+                } else {
+                    Mesh::addTriangleIndices(indices, numSides, row, col);
                 }
 
                 vertices.push_back(vertex);
@@ -105,115 +124,91 @@ public:
 
     }
 
-    /*
-     * Length is the number of vertices per side of the mesh
-     */
-    explicit Mesh(int length) {
 
-        //
-//        verts.reserve(length * length);
-        normals.reserve(length * length);
-        colors.reserve(length * length);
-        indices.reserve((length - 1) * (length - 1) * 6);
+    // Add the two triangles of indices associated with the given row and column to the indices vector
+    static void addTriangleIndices(std::vector<uint16_t>& indices, int vertsPerSide, int row, int col) {
+
+        // Don't do for last column and row since triangles are made from the left and bottom
+        if (row < vertsPerSide - 1 && col < vertsPerSide - 1) {
+            // Indices
+            // --------------
+            uint16_t bottomLeft = row * vertsPerSide + col;
+            uint16_t bottomRight = bottomLeft + 1;
+            uint16_t topLeft = (row + 1) * vertsPerSide + col;
+            uint16_t topRight = topLeft + 1;
+            // These go from left to right, bottom to top
+            //  _________________________________
+            //  | \   2 | \   4 | \     | \     |
+            //  |   \   |   \   |   \   |   \   |
+            //  |  1  \ |  3  \ | ... \ |     \ |
+            //  ---------------------------------
+            // (Diagonal from top-left to bottom-right)
+
+            // First triangle
+            indices.push_back(bottomLeft);
+            indices.push_back(bottomRight);
+            indices.push_back(topLeft);
+
+            // Second triangle
+            indices.push_back(topLeft);
+            indices.push_back(bottomRight);
+            indices.push_back(topRight);
+        }
+
+    }
+
+    static void addLineIndices(std::vector<uint16_t>& indices, int vertsPerSide, int row, int col) {
+
+        uint16_t bottomLeft = 0;
+        uint16_t bottomRight = 0;
+        uint16_t topLeft = 0;
+        uint16_t topRight = 0;
+
+        // Will always add a bottom line
+        indices.push_back(bottomLeft);
+        indices.push_back(bottomRight);
+
+        // Only add left and center line if not last row
+        if (row < vertsPerSide - 1) {
+            // Left Line
+            indices.push_back(topLeft);
+            indices.push_back(bottomLeft);
+
+            // Center line
+            indices.push_back(bottomRight);
+            indices.push_back(topLeft);
+
+            // Only add right line at the end of the row, but not at the last row
+            if (col == vertsPerSide - 1) {
+                // Right Line
+                indices.push_back(topRight);
+                indices.push_back(bottomRight);
+            }
+
+        }
+
     }
 
 
-//	Mesh(std::vector<float> vertices, std::vector<uint16_t> indices, std::vector<float> colors = {}) : vertices(vertices), indices(indices), colors(colors) {
-//		std::cout << "Index Count: " << indices.size() << std::endl;
-//		std::cout << "Vertex Count: " << (vertices.size() / 3) << std::endl;
-//		std::cout << "Color Count: " << (colors.size() / 3) << std::endl;
-//		assert(vertices.size() == colors.size());
-//
-//		// Adjust index data to be a multiple of 4
-//		while (indices.size() % 4 != 0) {
-//			indices.push_back(0);
-//		}
-//
-//	}
+    void setWireFrame(bool wire) {
+        if (wire == wireFrame) return;
+        wireFrame = wire;
 
+        indices.clear();
+        indices.reserve(numSides * numSides * 6);
 
-	// Generates vertices from left to right, bottom to top
-//	static std::vector<float> generateGridVertices(int numCells, float scale) {
-//		NoiseTable noise(0);
-//
-//		std::vector<float> vertices;
-//		float halfSize = numCells / 2.0f;
-//
-//		int stepsPerUnit = numCells / noise.tableSize;
-//
-//		for (int i = 0; i <= numCells; i++) {
-//			for (int j = 0; j <= numCells; j++) {
-//				float x = (j - halfSize) * scale;
-//				float z = (i - halfSize) * scale;
-//
-//				float xAdjusted = x / float(stepsPerUnit);
-//				float zAdjusted = z / float(stepsPerUnit);
-//				float y = noise.evalBicubic(glm::vec2(xAdjusted, zAdjusted)) * 5.0f;
-//
-//				vertices.push_back(x);
-//				vertices.push_back(y);
-//				vertices.push_back(z);
-//			}
-//		}
-//		return vertices;
-//	}
+        for (int row = 0; row < vertsPerSide; row++) {
+            for (int col = 0; col < vertsPerSide; col++) {
+                if (wireFrame) {
+                    Mesh::addLineIndices(indices, numSides, row, col);
+                } else {
+                    Mesh::addTriangleIndices(indices, numSides, row, col);
+                }
+            }
+        }
 
-	static std::vector<glm::vec3> generateGridNormals(int numCells, std::vector<glm::vec3> vertices) {
-		std::vector<glm::vec3> normals;
-		for (int row = 0; row <= numCells; row++) {
-			for (int col = 0; col <= numCells; col++) {
+    }
 
-				glm::vec3 left;
-				glm::vec3 right;
-				glm::vec3 up;
-				glm::vec3 down;
-
-				// If the current vertex is on the edge of the grid, wrap around to the opposite side
-
-				if (col == 0) {
-					left = vertices[row * (numCells + 1) + numCells];
-				} else {
-					left = vertices[row * (numCells + 1) + col - 1];
-				}
-
-				if (col == numCells) {
-					right = vertices[row * (numCells + 1)];
-				} else {
-					right = vertices[row * (numCells + 1) + col + 1];
-				}
-
-				if (row == 0) {
-					down = vertices[(numCells) * (numCells + 1) + col];
-				} else {
-					down = vertices[(row - 1) * (numCells + 1) + col];
-				}
-
-				if (row == numCells) {
-					up = vertices[col];
-				} else {
-					up = vertices[(row + 1) * (numCells + 1) + col];
-				}
-
-				// Create normal from four surrounding vertices.
-				// Creates a blurring effect since the height at the current vertex is not considered
-				glm::vec3 normal;
-
-				// Alternative method?
-				glm::vec3 normal2;
-				normal2.x = left.y - right.y;
-				normal2.z = down.y - up.y;
-				normal2.y = 2.0f;
-				normal2 = glm::normalize(normal2);
-
-				// Alternative method that doesn't work (why?)
-//				glm::vec3 cross = glm::cross(right - left, up - down);
-//				normal = glm::normalize(cross);
-
-				normals.push_back(normal2);
-			}
-		}
-		return normals;
-	}
 
 
 	static std::vector<uint16_t> generateGridIndices(int numCells) {
@@ -313,60 +308,37 @@ public:
 
 	Chunk() = default;
 
-	explicit Chunk(int chunkSize) : size(chunkSize) {}
-
-	void load(Noise noise, glm::ivec2 worldPosition, bool wire = false) {
-
-		this->worldPos = worldPosition;
+	Chunk(Noise noise, glm::ivec2 worldPosition, int chunkSize = DefaultChunkSize, bool wireFrame = false) :
+        worldPos(worldPosition), chunkSize(chunkSize)
+    {
+        chunkSeed = noise.desc.seed * worldPos.x + worldPos.y;
 
         std::vector<float> heightMap;
-        heightMap.reserve((size + 1) * (size + 1));
+        heightMap.reserve((chunkSize + 1) * (chunkSize + 1));
 
-//		mesh.verts.resize((size + 1) * (size + 1));
+        for (int row = 0; row <= chunkSize; row++) {
 
-		chunkSeed = noise.desc.seed * worldPos.x + worldPos.y;
+            int worldPosY = row + (worldPos.y * chunkSize);
 
-		if (wire) {
-//			mesh.indices = Mesh::generateWireFrameGridIndices(size);
-		} else {
-//			mesh.indices = Mesh::generateGridIndices(size);
-		}
+            for (int col = 0; col <= chunkSize; col++) {
 
-		for (int row = 0; row <= size; row++) {
+                int worldPosX = col + (worldPos.x * chunkSize);
 
-			int worldPosY = row + (worldPos.y * size);
-			for (int col = 0; col <= size; col++) {
-
-				int worldPosX = col + (worldPos.x * size);
-				float h = noise.eval({worldPosX, worldPosY});
+                float h = noise.eval({worldPosX, worldPosY});
                 heightMap.push_back(h);
-//				mesh.verts[row * (size + 1) + col] = {worldPosX, h, worldPosY};
-			}
-		}
 
-        // TODO Account for wire mesh
-        mesh = Mesh(heightMap, size);
+            }
+        }
 
-//		mesh.normals = Mesh::generateGridNormals(size, mesh.verts);
-//		mesh.indices = Mesh::generateGridIndices(size);
-//		mesh.colors = Mesh::generateGridColors(size);
+        mesh = Mesh(heightMap, chunkSize, wireFrame);
+    }
 
 
-	}
-
-	void unload() {
-//		mesh.verts.clear();
-		mesh.colors.clear();
-		mesh.indices.clear();
-		mesh.normals.clear();
-	}
-
-	static constexpr int DefaultChunkSize = 32;
-	int size = DefaultChunkSize; // Number of vertices per side of the chunk
+	static constexpr int DefaultChunkSize = 128;
+	int chunkSize = DefaultChunkSize; // Number of vertices per side of the chunk
 	int chunkSeed = 0;
 	glm::ivec2 worldPos{};
 	Mesh mesh;
-	bool dirty = false;
 
 };
 

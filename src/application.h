@@ -161,9 +161,7 @@ private:
 	wgpu::Texture m_texture = nullptr;
 	wgpu::TextureView m_textureView = nullptr;
 
-	wgpu::Buffer m_positionBuffer = nullptr;
-	wgpu::Buffer m_colorBuffer = nullptr;
-	wgpu::Buffer m_normalBuffer = nullptr;
+    wgpu::Buffer m_vertexBuffer = nullptr;
 	wgpu::Buffer m_indexBuffer = nullptr;
 	wgpu::Buffer m_uniformBuffer = nullptr;
 

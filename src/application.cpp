@@ -11,7 +11,7 @@
 Application::Application() : m_window(nullptr) {
 
 	initWorld();
-
+\
 	initWindowAndDevice();
 	initSwapChain();
 	initDepthBuffer();
@@ -160,12 +160,7 @@ void Application::onFrame() {
 	// Select which pipeline to use
 	renderPass.setPipeline(m_pipeline);
 
-	// Set vertex buffer while encoding the render pass
-	renderPass.setVertexBuffer(0, m_positionBuffer, 0, world.chunks[0].mesh.verts.size() * sizeof(float));
-
-	renderPass.setVertexBuffer(1, m_colorBuffer, 0, world.chunks[0].mesh.colors.size() * sizeof(float));
-
-	renderPass.setVertexBuffer(2, m_normalBuffer, 0, world.chunks[0].mesh.normals.size() * sizeof(float));
+    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world.chunks[0].mesh.vertices.size() * sizeof(Vertex));
 
 	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world.chunks[0].mesh.indices.size() * sizeof(uint16_t));
 
@@ -419,46 +414,35 @@ void Application::initRenderPipeline() {
 
 	// Vector because there are 3 attributes in separate buffers
 	// (As opposed to multiple vertex attributes in one buffer)
-	std::vector<wgpu::VertexBufferLayout> vertexBufferLayouts(3);
+    // SIKE they are oe buffer now (so there are 3 attributes in one buffer)
+	wgpu::VertexBufferLayout vertexBufferLayout;
 
-	// Position attribute
-	wgpu::VertexAttribute positionAttrib;
-	positionAttrib.shaderLocation = 0; // Corresponds to @location(...)
-	positionAttrib.format = wgpu::VertexFormat::Float32x3; // size of position, Means vec2<f32> in the shader
-	positionAttrib.offset = 0; // Index of the first element
-	// Build vertex buffer layout
-	vertexBufferLayouts[0].attributeCount = 1;
-	vertexBufferLayouts[0].attributes = &positionAttrib;
-	vertexBufferLayouts[0].arrayStride = 3 * sizeof(float); // size of position, since only color attribs in this buffer
-	vertexBufferLayouts[0].stepMode = wgpu::VertexStepMode::Vertex;
+    std::vector<wgpu::VertexAttribute> vertexAttribs(3);
 
+    // Position attribute
+    vertexAttribs[0].shaderLocation = 0; // Corresponds to @location(...)
+    vertexAttribs[0].format = wgpu::VertexFormat::Float32x3; // size of position, Means vec2<f32> in the shader
+    vertexAttribs[0].offset = 0; // Index of the first element
+
+    // Normal attribute
+    vertexAttribs[1].shaderLocation = 1; // Corresponds to @location(...)
+    vertexAttribs[1].format = wgpu::VertexFormat::Float32x3; // size of normal, Means vec3<f32> in the shader
+    vertexAttribs[1].offset = 1 * sizeof(glm::vec3); // Index of the first element
 
 	// Color attribute
-	wgpu::VertexAttribute colorAttrib;
-	colorAttrib.shaderLocation = 1; // Corresponds to @location(...)
-	colorAttrib.format = wgpu::VertexFormat::Float32x3; // size of color, Means vec3<f32> in the shader
-	colorAttrib.offset = 0; // Index of the first element
-	// Build color buffer layout
-	vertexBufferLayouts[1].attributeCount = 1;
-	vertexBufferLayouts[1].attributes = &colorAttrib;
-	vertexBufferLayouts[1].arrayStride = 3 * sizeof(float); // size of color, since only color attribs in this buffer
-	vertexBufferLayouts[1].stepMode = wgpu::VertexStepMode::Vertex;
+    vertexAttribs[2].shaderLocation = 2; // Corresponds to @location(...)
+    vertexAttribs[2].format = wgpu::VertexFormat::Float32x3; // size of color, Means vec3<f32> in the shader
+    vertexAttribs[2].offset = 2 * sizeof(glm::vec3); // Index of the first element
+
+    // Build vertex buffer layout
+	vertexBufferLayout.attributeCount = 3;
+	vertexBufferLayout.attributes = vertexAttribs.data();
+	vertexBufferLayout.arrayStride = sizeof(Vertex); // size of color, since only color attribs in this buffer
+	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
 
 
-	// Normal attribute
-	wgpu::VertexAttribute normalAttrib;
-	normalAttrib.shaderLocation = 2; // Corresponds to @location(...)
-	normalAttrib.format = wgpu::VertexFormat::Float32x3; // size of normal, Means vec3<f32> in the shader
-	normalAttrib.offset = 0; // Index of the first element
-	// build normal buffer layout
-	vertexBufferLayouts[2].attributeCount = 1;
-	vertexBufferLayouts[2].attributes = &normalAttrib;
-	vertexBufferLayouts[2].arrayStride = 3 * sizeof(float); // size of normal, since only normal attribs in this buffer
-	vertexBufferLayouts[2].stepMode = wgpu::VertexStepMode::Vertex;
-
-
-	pipelineDesc.vertex.bufferCount = static_cast<uint32_t>(vertexBufferLayouts.size());
-	pipelineDesc.vertex.buffers = vertexBufferLayouts.data();
+	pipelineDesc.vertex.bufferCount = 1; //static_cast<uint32_t>(vertexBufferLayouts.size());
+	pipelineDesc.vertex.buffers = &vertexBufferLayout;
 
 	// Vertex Shader
 	pipelineDesc.vertex.module = m_shaderModule;
@@ -577,36 +561,16 @@ void Application::initGeometry() {
 //	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
 
 
-
-
-
 	wgpu::BufferDescriptor bufferDesc{};
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
 	bufferDesc.mappedAtCreation = false;
 
-
-	// Create position buffer
-	bufferDesc.size = world.chunks[0].mesh.verts.size() * sizeof(glm::vec3);
-	m_positionBuffer = m_device.createBuffer(bufferDesc);
-	// Upload pos data to position buffer
-	m_queue.writeBuffer(m_positionBuffer, 0, world.chunks[0].mesh.verts.data(), bufferDesc.size);
-	std::cout << "Position Buffer: " << m_positionBuffer << std::endl;
-
-
-	// Create color buffer
-	bufferDesc.size = world.chunks[0].mesh.colors.size() * sizeof(glm::vec3);
-	m_colorBuffer = m_device.createBuffer(bufferDesc);
-	// Upload color data to color buffer
-	m_queue.writeBuffer(m_colorBuffer, 0, world.chunks[0].mesh.colors.data(), bufferDesc.size);
-	std::cout << "Color Buffer: " << m_colorBuffer << std::endl;
-
-
-	// Create normal buffer
-	bufferDesc.size = world.chunks[0].mesh.normals.size() * sizeof(glm::vec3);
-	m_normalBuffer = m_device.createBuffer(bufferDesc);
-	// Upload normal data to normal buffer
-	m_queue.writeBuffer(m_normalBuffer, 0, world.chunks[0].mesh.normals.data(), bufferDesc.size);
-	std::cout << "Normal Buffer: " << m_normalBuffer << std::endl;
+    // WEAVED VERTEX BUFFER
+    bufferDesc.size = world.chunks[0].mesh.vertices.size() * sizeof(Vertex);
+    m_vertexBuffer = m_device.createBuffer(bufferDesc);
+    // Upload vertex data to vertex buffer
+    m_queue.writeBuffer(m_vertexBuffer, 0, world.chunks[0].mesh.vertices.data(), bufferDesc.size);
+    std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
 
 
 	// Create index buffer
@@ -621,14 +585,10 @@ void Application::initGeometry() {
 
 void Application::terminateGeometry() {
 
-	m_positionBuffer.destroy();
+    m_vertexBuffer.destroy();
 	m_indexBuffer.destroy();
-	m_colorBuffer.destroy();
-	m_normalBuffer.destroy();
-	m_positionBuffer.release();
+	m_vertexBuffer.release();
 	m_indexBuffer.release();
-	m_colorBuffer.release();
-	m_normalBuffer.release();
 }
 
 void Application::initUniforms() {

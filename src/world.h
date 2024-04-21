@@ -11,7 +11,7 @@ public:
 	// Etc.
 
 	Camera camera;
-	std::vector<Chunk> chunks;
+	Chunk chunk;
 	bool dirty;
 
 
@@ -24,10 +24,10 @@ public:
 	};
 
 	void load(Noise::Descriptor noiseDesc, int worldSize = 1) {
-//		this->size = worldSize;
-//		this->noise = Noise(noiseDesc);
-//		camera.center = {worldSize * Chunk::DefaultChunkSize / 2.0f, 0.0f, worldSize * Chunk::DefaultChunkSize / 2.0f};
-		chunks.resize(worldSize * worldSize);
+		this->size = worldSize;
+		this->noise = Noise(noiseDesc);
+		camera.center = {worldSize * Chunk::DefaultChunkSize / 2.0f, 0.0f, worldSize * Chunk::DefaultChunkSize / 2.0f};
+//		chunks.resize(worldSize * worldSize);
 //		for (int row = 0; row < size; row++) {
 //			for (int col = 0; col < size; col++) {
 //				chunks[row * size + col].load(noise, {row, col}, wireFrame);
@@ -35,42 +35,37 @@ public:
 //		}
 
 
-        chunks[0] = Chunk(noise, {0, 0});
+        chunk = Chunk(noise, {0, 0});
 	}
+
+    void setNoise(Noise::Descriptor noiseDesc) {
+        noise = Noise(noiseDesc);
+        dirty = true;
+    }
 
 	void setWireFrame(bool wire) {
 		if (wire == wireFrame) return;
 		wireFrame = wire;
-		reload();
+		dirty = true;
 	}
 
 	[[nodiscard]] bool isWireFrame() const {
 		return wireFrame;
 	}
 
-	void reload() {
-		dirty = true;
-//		for (auto& chunk : chunks) {
-//			chunk.dirty = true;
-//		}
-	}
 
 	void update() {
-		for (auto& chunk : chunks) {
 
-//			if (chunk.dirty || dirty) {
-//				chunk.unload();
-//				chunk.load(noise, chunk.worldPos, wireFrame);
-//				chunk.dirty = false;
-//			}
-		}
+        if (dirty) {
+            chunk = Chunk(noise, {0, 0});
+            dirty = false;
+        }
+
 		dirty = false;
 	}
 
 	void unload() {
-		for (auto& chunk : chunks) {
-//			chunk.unload();
-		}
+
 	}
 
 

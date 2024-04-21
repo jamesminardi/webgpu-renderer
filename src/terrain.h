@@ -6,6 +6,7 @@
 #include <glm/gtc/matrix_transform.hpp>
 #include <webgpu/webgpu.hpp>
 #include <stb_image_write.h>
+#include <unordered_map>
 #include "noise/noise.h"
 
 
@@ -101,9 +102,9 @@ public:
                 vertex.color = {r, g, b};
 
                 if (wireFrame) {
-                    Mesh::addLineIndices(indices, numSides, row, col);
+                    Mesh::addLineIndices(indices, vertsPerSide, row, col);
                 } else {
-                    Mesh::addTriangleIndices(indices, numSides, row, col);
+                    Mesh::addTriangleIndices(indices, vertsPerSide, row, col);
                 }
 
                 vertices.push_back(vertex);
@@ -124,6 +125,8 @@ public:
 
     }
 
+
+private:
 
     // Add the two triangles of indices associated with the given row and column to the indices vector
     static void addTriangleIndices(std::vector<uint16_t>& indices, int vertsPerSide, int row, int col) {
@@ -211,94 +214,94 @@ public:
 
 
 
-	static std::vector<uint16_t> generateGridIndices(int numCells) {
-		std::vector<uint16_t> indices;
-		for (int i = 0; i < numCells; ++i) {
-			for (int j = 0; j < numCells; ++j) {
-				// These go from left to right, bottom to top
-				uint16_t bottomLeft = i * (numCells + 1) + j;
-				uint16_t bottomRight = bottomLeft + 1;
-				uint16_t topLeft = (i + 1) * (numCells + 1) + j;
-				uint16_t topRight = topLeft + 1;
+//	static std::vector<uint16_t> generateGridIndices(int numCells) {
+//		std::vector<uint16_t> indices;
+//		for (int i = 0; i < numCells; ++i) {
+//			for (int j = 0; j < numCells; ++j) {
+//				// These go from left to right, bottom to top
+//				uint16_t bottomLeft = i * (numCells + 1) + j;
+//				uint16_t bottomRight = bottomLeft + 1;
+//				uint16_t topLeft = (i + 1) * (numCells + 1) + j;
+//				uint16_t topRight = topLeft + 1;
+//
+//				// First triangle (top-left, bottom-left, top-right)
+//				indices.push_back(bottomLeft);
+//				indices.push_back(bottomRight);
+//				indices.push_back(topLeft);
+//
+//
+//				// Second triangle (top-right, bottom-left, bottom-right)
+//				indices.push_back(topLeft);
+//				indices.push_back(bottomRight);
+//				indices.push_back(topRight);
+//			}
+//		}
+//		return indices;
+//	}
 
-				// First triangle (top-left, bottom-left, top-right)
-				indices.push_back(bottomLeft);
-				indices.push_back(bottomRight);
-				indices.push_back(topLeft);
+//	static std::vector<uint16_t> generateWireFrameGridIndices(int numCells) {
+//		std::vector<uint16_t> indices;
+//
+//		int j = 0;
+//		int i = 0;
+//		uint16_t bottomLeft = 0;
+//		uint16_t bottomRight = 0;
+//		uint16_t topLeft = 0;
+//		uint16_t topRight = 0;
+//		for (i = 0; i < numCells; ++i) {
+//			for (j = 0; j < numCells; ++j) {
+//				bottomLeft = i * (numCells + 1) + j;
+//				bottomRight = bottomLeft + 1;
+//				topLeft = (i + 1) * (numCells + 1) + j;
+//				topRight = topLeft + 1;
+//
+//				// Bottom line
+//				indices.push_back(bottomLeft);
+//				indices.push_back(bottomRight);
+//
+//				// Center line
+//				indices.push_back(bottomRight);
+//				indices.push_back(topLeft);
+//
+//				// Left Line
+//				indices.push_back(topLeft);
+//				indices.push_back(bottomLeft);
+//
+//				// Right Line
+//				indices.push_back(topRight);
+//				indices.push_back(bottomRight);
+//			}
+//
+//			// Add right most line:
+//			indices.push_back(bottomRight); // bottomRight
+//			indices.push_back(topRight); // topRight
+//		}
+//
+//		// Add top most line
+//		i = numCells;
+//		for (j = 0; j < numCells; j++) {
+//			bottomLeft = i * (numCells + 1) + j;
+//			bottomRight = bottomLeft + 1;
+//
+//			indices.push_back(bottomLeft);
+//			indices.push_back(bottomRight);
+//		}
+//		return indices;
+//	}
 
-
-				// Second triangle (top-right, bottom-left, bottom-right)
-				indices.push_back(topLeft);
-				indices.push_back(bottomRight);
-				indices.push_back(topRight);
-			}
-		}
-		return indices;
-	}
-
-	static std::vector<uint16_t> generateWireFrameGridIndices(int numCells) {
-		std::vector<uint16_t> indices;
-
-		int j = 0;
-		int i = 0;
-		uint16_t bottomLeft = 0;
-		uint16_t bottomRight = 0;
-		uint16_t topLeft = 0;
-		uint16_t topRight = 0;
-		for (i = 0; i < numCells; ++i) {
-			for (j = 0; j < numCells; ++j) {
-				bottomLeft = i * (numCells + 1) + j;
-				bottomRight = bottomLeft + 1;
-				topLeft = (i + 1) * (numCells + 1) + j;
-				topRight = topLeft + 1;
-
-				// Bottom line
-				indices.push_back(bottomLeft);
-				indices.push_back(bottomRight);
-
-				// Center line
-				indices.push_back(bottomRight);
-				indices.push_back(topLeft);
-
-				// Left Line
-				indices.push_back(topLeft);
-				indices.push_back(bottomLeft);
-
-				// Right Line
-				indices.push_back(topRight);
-				indices.push_back(bottomRight);
-			}
-
-			// Add right most line:
-			indices.push_back(bottomRight); // bottomRight
-			indices.push_back(topRight); // topRight
-		}
-
-		// Add top most line
-		i = numCells;
-		for (j = 0; j < numCells; j++) {
-			bottomLeft = i * (numCells + 1) + j;
-			bottomRight = bottomLeft + 1;
-
-			indices.push_back(bottomLeft);
-			indices.push_back(bottomRight);
-		}
-		return indices;
-	}
-
-	static std::vector<glm::vec3> generateGridColors(int numCells) {
-		std::vector<glm::vec3> colors;
-		for (int i = 0; i <= numCells; i++) {
-			for (int j = 0; j <= numCells; j++) {
-				float r = static_cast<float>(j) / numCells;
-				float g = static_cast<float>(i) / numCells;
-				float b = (1 - g) * (1 - r);  // You can adjust this value as needed
-
-				colors.push_back({r, g, b});
-			}
-		}
-		return colors;
-	}
+//	static std::vector<glm::vec3> generateGridColors(int numCells) {
+//		std::vector<glm::vec3> colors;
+//		for (int i = 0; i <= numCells; i++) {
+//			for (int j = 0; j <= numCells; j++) {
+//				float r = static_cast<float>(j) / numCells;
+//				float g = static_cast<float>(i) / numCells;
+//				float b = (1 - g) * (1 - r);  // You can adjust this value as needed
+//
+//				colors.push_back({r, g, b});
+//			}
+//		}
+//		return colors;
+//	}
 
 };
 
@@ -351,32 +354,80 @@ public:
 
 class Terrain {
 public:
-//
-//	Mesh mesh;
-//
-//	Terrain() = default;
-//
-//	Mesh generateSquareMesh(int numSides, float scale, bool wireFrame = false) {
-//		std::vector<float> vertices;
-////		std::vector<float> vertices = Mesh::generateGridVertices(numSides, scale);
-//		std::vector<float> colors = Mesh::generateGridColors(numSides);
-//		std::vector<uint16_t> indices;
-//
-//		if (wireFrame) {
-//			indices = Mesh::generateWireFrameGridIndices(numSides);
-//		} else {
-//			indices = Mesh::generateGridIndices(numSides);
-//		}
-//
-//		this->wireFrame = wireFrame;
-//		mesh = Mesh(vertices, indices, colors);
-//		return mesh;
-//	}
-//
-//	bool needs_update = false;
-//	bool wireFrame = false;
-//
-//private:
-//
-//
+
+
+	/*
+	 * Handles all the chunks in the world.
+	 * Stores a list of loaded chunks surrounding the center chunk of interest, typically the user.
+	 */
+
+	// Number of chunks visible in each direction from the center chunk.
+	// Ex. 3 = 7x7 grid.
+	// Total number of chunks = (2 * numVisibleChunks + 1)^2
+	static constexpr int DefaultLoadDistance = 3;
+
+	glm::ivec2 center;
+	int numVisibleChunks = DefaultLoadDistance;
+
+	std::unordered_map<uint64_t, Chunk> loadedChunks;
+
+	static inline uint64_t key(int i,int j) {return ((uint64_t)i << 32 | j);}
+
+	static inline uint64_t key(glm::ivec2 v) {return ((uint64_t)v.x << 32 | v.y);}
+
+
+
+	Terrain(glm::ivec2 center, int numVisibleChunks = DefaultLoadDistance)
+	: center(center), numVisibleChunks(numVisibleChunks) {
+
+		auto noise = Noise(Noise::Descriptor());
+
+
+		// Generate chunk positions of the chunks surrounding the center chunk
+		for (int row = -numVisibleChunks; row <= numVisibleChunks; row++) {
+			for (int col = -numVisibleChunks; col <= numVisibleChunks; col++) {
+				glm::ivec2 worldPos = center + glm::ivec2{col, row};
+				loadedChunks[key(worldPos)] = Chunk(noise, worldPos);
+			}
+		}
+	}
+
+    void update(glm::ivec2 center) {
+        updateChunks(center);
+    }
+private:
+
+    void updateChunks(glm::ivec2 center) {
+        if (center == this->center) return;
+
+        // Unload old chunks, load new chunks
+
+        // Unload chunks not in new view
+        for (auto it = loadedChunks.begin(); it != loadedChunks.end();) {
+            if (std::abs(it->second.worldPos.x - center.x) > numVisibleChunks ||
+                std::abs(it->second.worldPos.y - center.y) > numVisibleChunks) {
+                it = loadedChunks.erase(it);
+            } else {
+                it++;
+            }
+        }
+
+        for (int row = -numVisibleChunks; row <= numVisibleChunks; row++) {
+            for (int col = -numVisibleChunks; col <= numVisibleChunks; col++) {
+                glm::ivec2 worldPos = center + glm::ivec2{col, row};
+
+                // Only load chunks that are not already loaded
+                if (loadedChunks.find(key(worldPos)) == loadedChunks.end()) {
+                    loadedChunks[key(worldPos)] = Chunk(Noise(Noise::Descriptor()), worldPos);
+                }
+            }
+        }
+
+        this->center = center;
+
+
+
+    }
+
+
 };

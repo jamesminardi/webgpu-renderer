@@ -177,6 +177,11 @@ public:
 		return out * desc.amplitude;
 	}
 
+
+
+private:
+
+
 	float evalLinear(glm::vec2 p) {
 		int x0 = int(glm::floor(p.x)) * PrimeX;
 		int y0 = int(glm::floor(p.y)) * PrimeY;

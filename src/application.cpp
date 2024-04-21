@@ -113,7 +113,7 @@ void Application::onFrame() {
 	renderPassColorAttachment.resolveTarget = nullptr;
 	renderPassColorAttachment.loadOp = wgpu::LoadOp::Clear;
 	renderPassColorAttachment.storeOp = wgpu::StoreOp::Store;
-	renderPassColorAttachment.clearValue = { 0.05, 0.05, 0.05, 1.0 };
+	renderPassColorAttachment.clearValue = { 0.7, 0.7, 0.8, 1.0 };
 
 
 	wgpu::RenderPassDescriptor renderPassDesc{};
@@ -160,16 +160,16 @@ void Application::onFrame() {
 	// Select which pipeline to use
 	renderPass.setPipeline(m_pipeline);
 
-    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world.chunks[0].mesh.vertices.size() * sizeof(Vertex));
+    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world.chunk.mesh.vertices.size() * sizeof(Vertex));
 
-	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world.chunks[0].mesh.indices.size() * sizeof(uint16_t));
+	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world.chunk.mesh.indices.size() * sizeof(uint16_t));
 
 	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
 
 	// Draw triangles
 	// We use the `vertexCount` variable instead of hard-coding the vertex count
 //	renderPass.draw(m_vertexCount,1,0,0);
-	renderPass.drawIndexed(world.chunks[0].mesh.indices.size(), 1, 0, 0, 0);
+	renderPass.drawIndexed(world.chunk.mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
 	updateGui(renderPass);
@@ -566,19 +566,19 @@ void Application::initGeometry() {
 	bufferDesc.mappedAtCreation = false;
 
     // WEAVED VERTEX BUFFER
-    bufferDesc.size = world.chunks[0].mesh.vertices.size() * sizeof(Vertex);
+    bufferDesc.size = world.chunk.mesh.vertices.size() * sizeof(Vertex);
     m_vertexBuffer = m_device.createBuffer(bufferDesc);
     // Upload vertex data to vertex buffer
-    m_queue.writeBuffer(m_vertexBuffer, 0, world.chunks[0].mesh.vertices.data(), bufferDesc.size);
+    m_queue.writeBuffer(m_vertexBuffer, 0, world.chunk.mesh.vertices.data(), bufferDesc.size);
     std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
 
 
 	// Create index buffer
-	bufferDesc.size = world.chunks[0].mesh.indices.size() * sizeof(uint16_t);
+	bufferDesc.size = world.chunk.mesh.indices.size() * sizeof(uint16_t);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
 	m_indexBuffer = m_device.createBuffer(bufferDesc);
 	// Upload index data to index buffer
-	m_queue.writeBuffer(m_indexBuffer, 0, world.chunks[0].mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+	m_queue.writeBuffer(m_indexBuffer, 0, world.chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
 	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
 
 }
@@ -788,6 +788,10 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 	if (ImGui::Checkbox("WireFrame", &wireFrame)) {            // Edit bools storing our window open/close state
 		world.setWireFrame(wireFrame);
 	}
+
+    if (world.dirty) {
+        world.setNoise(noiseDesc);
+    }
 
 
 //	ImGui::ColorEdit3("clear color", (float*)&clear_color);	// Edit 3 floats representing a color

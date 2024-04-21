@@ -47,7 +47,7 @@ fn vs_main(in: VertexInput) -> VertexOutput {
 
     var lightPos = vec3f(50.0, 30.0, 0.0);
 
-    var ambientStrength = 0.2f;
+    var ambientStrength = 0.3f;
     var ambient = ambientStrength * in.color;
 
     var lightDir = normalize(lightPos - in.position.xyz);

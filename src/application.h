@@ -164,9 +164,6 @@ private:
 
 
 
-	ShaderUniforms m_uniforms{};
-
-
 public:
 
 	glm::vec3 focalPoint{};

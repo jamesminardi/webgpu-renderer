@@ -32,14 +32,12 @@ public:
 	glm::mat4 T2 = glm::mat4(1.0);
 	float fov{};
 
-	std::unique_ptr<TerrainRenderer> terrainRenderer;
+//	std::unique_ptr<TerrainRenderer> terrainRenderer;
 	Noise::Descriptor noiseDesc;
 	std::unique_ptr<Terrain> terrain;
 	glm::ivec2 center{};
-	ShaderUniforms m_uniforms{};
 
 
-	Chunk* chunk;
 
     // TODO: Update app to use terrain class instead of chunk/world
     // TODO: "Player" class? holds the center to be used for generating chunks. Doesn't necessarily have to have the camera

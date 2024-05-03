@@ -119,22 +119,30 @@ public:
 				float b = (1 - g) * (1 - r);  // You can adjust this value as needed
 				vertex.color = {r, g, b};
 
-				if (wireFrame) {
-					Mesh::addLineIndices(indices, vertsPerSide, row, col);
-				} else {
-					Mesh::addTriangleIndices(indices, vertsPerSide, row, col);
-				}
+//				if (wireFrame) {
+//					Mesh::addLineIndices(indices, vertsPerSide, row, col);
+//				} else {
+//				}
+				Mesh::addTriangleIndices(indices, vertsPerSide, row, col);
 
 				vertices.push_back(vertex);
 
 			}
 		}
 
-		std::cout << "Triangle Count: " << indices.size() / 3 << std::endl;
-		std::cout << "Vertex Count: " << vertices.size() << std::endl;
-		assert(vertsPerSide * vertsPerSide == vertices.size());
-		assert(numSides * numSides * 2 == indices.size() / 3);
 
+		if (!wireFrame) {
+			std::cout << "Triangle Count: " << indices.size() / 3 << std::endl;
+			std::cout << "Vertex Count: " << vertices.size() << std::endl;
+			assert(vertsPerSide * vertsPerSide == vertices.size());
+			assert(numSides * numSides * 2 == indices.size() / 3);
+		}
+		else {
+//			std::cout << "Line Count: " << indices.size() / 2 << std::endl;
+//			std::cout << "Vertex Count: " << vertices.size() << std::endl;
+//			assert(vertsPerSide * vertsPerSide == vertices.size());
+//			assert(numSides * numSides * 4 == indices.size() / 2);
+		}
 		// Adjust index data to be a multiple of 4 (required by WebGPU)
 		while (indices.size() % 4 != 0) {
 			indices.push_back(0);
@@ -388,11 +396,10 @@ public:
 
 
 	glm::ivec2 center{};
-
+	ShaderUniforms uniforms{};
 //	Chunk chunk;
 private:
 
-	World *world;
 
 	Noise noise;
 	bool wireFrame{};
@@ -405,7 +412,7 @@ private:
 	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
 	wgpu::RenderPipeline m_pipeline = nullptr;
 	wgpu::RenderPipeline m_wireframePipeline = nullptr;
-//	ShaderUniforms m_uniforms{};
+
 	wgpu::BufferDescriptor bufferDesc{};
 
 
@@ -416,7 +423,9 @@ public:
 	Terrain() = default;
 
 
-	explicit Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos = DefaultCenter, int numVisibleChunks = DefaultLoadDistance, int chunkSize = Chunk::DefaultChunkSize, bool wireFrame = false);
+	explicit Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos = DefaultCenter, int numVisibleChunks = DefaultLoadDistance, int chunkSize = Chunk::DefaultChunkSize, bool wireFrame = false);
+
+	void load();
 
 	// Updates the visible chunks list based on center position
 	void update(glm::ivec2 centerChunkPos);

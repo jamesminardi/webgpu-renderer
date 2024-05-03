@@ -4,9 +4,8 @@
 #include "shader.h"
 #include "world.h"
 
-Terrain::Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int numVisibleChunks, int chunkSize, bool wireFrame)
-		: world(world), center(centerChunkPos), numVisibleChunks(numVisibleChunks), chunkSize(chunkSize), wireFrame(wireFrame) {
-
+Terrain::Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int numVisibleChunks, int chunkSize, bool wireFrame)
+		: center(centerChunkPos), numVisibleChunks(numVisibleChunks), chunkSize(chunkSize), wireFrame(wireFrame) {
 
 
 	createRenderPipelines();
@@ -21,11 +20,17 @@ Terrain::Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChu
 
 
 
+
+
+
+}
+
+void Terrain::load() {
 	loadManager.chunksToLoad.insert(center);
 
 //	 loadManager.updateChunkLists();
 //
-	 for (auto& pos : loadManager.chunksToLoad) {
+	for (auto& pos : loadManager.chunksToLoad) {
 		chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
 		initChunkBuffers(chunks.at(pos));
 		initChunkUniforms(chunks.at(pos));
@@ -34,8 +39,6 @@ Terrain::Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChu
 	}
 
 	loadManager.chunksToLoad.clear();
-
-
 }
 
 // Updates the visible chunks list based on center position
@@ -106,7 +109,13 @@ bool Terrain::isWireFrame() {
 }
 
 void Terrain::render(wgpu::RenderPassEncoder &renderPass) {
-	renderPass.setPipeline(m_pipeline);
+
+	if (wireFrame) {
+		renderPass.setPipeline(m_wireframePipeline);
+	}
+	else {
+		renderPass.setPipeline(m_pipeline);
+	}
 
 	for (auto& [key, chunk] : chunks) {
 		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
@@ -299,7 +308,7 @@ void Terrain::initChunkUniforms(Chunk& chunk) {
 
 	chunk.mesh.uniformBuffer = Application::device->createBuffer(bufferDesc);
 
-	chunk.mesh.uniforms = world->m_uniforms;
+	chunk.mesh.uniforms = uniforms;
 
 	Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
 }

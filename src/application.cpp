@@ -766,7 +766,7 @@ void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mo
 }
 
 void Application::updateViewMatrix() {
-	m_uniforms.viewMatrix = world->camera.updateViewMatrix();
+	world->terrain->uniforms.viewMatrix = world->camera.updateViewMatrix();
 
 //	Application::queue->writeBuffer(
 //			world->chunk->mesh.uniformBuffer,
@@ -775,7 +775,7 @@ void Application::updateViewMatrix() {
 //				sizeof(ShaderUniforms::viewMatrix)
 //		);
 	for (auto& [key, chunk] : world->terrain->chunks) {
-		chunk.mesh.uniforms.viewMatrix = m_uniforms.viewMatrix;
+		chunk.mesh.uniforms.viewMatrix = world->terrain->uniforms.viewMatrix;
 		Application::queue->writeBuffer(
 				chunk.mesh.uniformBuffer,
 				offsetof(ShaderUniforms, viewMatrix),

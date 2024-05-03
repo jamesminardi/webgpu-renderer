@@ -1,10 +1,8 @@
 #include <iostream>
 
 #include "stb_image_write.h"
+#include "globals.h"
 #include "application.h"
-
-#include "terrain.h"
-#include "noise/noise.h"
 
 
 int main (int, char**) {
@@ -71,12 +69,17 @@ int main (int, char**) {
 //	noiseTable.generate(noise, 128, 16);
 //	noiseTable.output("ws_o3_w.bmp");
 
-	// Terrain App
-	try {
-		auto app = Application();
 
-		while (app.isRunning()) {
-			app.onFrame();
+
+	// Terrain App
+
+	Application* app;
+
+	try {
+        app = new Application();
+
+		while (app->isRunning()) {
+            app->onFrame();
 		}
 	}
 	catch (const std::runtime_error& e) {
@@ -85,6 +88,8 @@ int main (int, char**) {
 	catch(const std::exception& e) {
 		std::cerr << e.what() << '\n';
 	}
+
+	delete app;
 
 	return 0;
 }

@@ -5,46 +5,30 @@
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
 #include <array>
-#include "window.h"
 #include "input.h"
 #include "shader.h"
 #include "camera.h"
-#include "terrain.h"
-#include "world.h"
+#include "noise/noise.h"
+#include "types.h"
+
 #include <string>
 
 
-
-
-
-/*
- * A structure that describes the data layout in the vertex buffer,
- * used by loadGeometryFromObj and used it in `sizeof` and `offsetof`
- * when uploading data to the GPU.
- */
-struct VertexAttributes {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec3 color;
-	glm::vec2 uv;
-};
-
-/*
- * The same structure as in the shader, replicated in C++
- */
-struct ShaderUniforms {
-	// We add transform matrices
-	glm::mat4x4 projectionMatrix;
-	glm::mat4x4 viewMatrix;
-	glm::mat4x4 modelMatrix;
-	std::array<float, 4> color;
-	float time;
-	float _pad[3];
-};
+class World;
+//class TerrainRenderer;
 
 
 class Application {
 public:
+
+	static std::unique_ptr<wgpu::Device> device;
+	static std::unique_ptr<wgpu::Queue> queue;
+
+	static wgpu::TextureFormat swapChainFormat;
+	static wgpu::TextureFormat depthTextureFormat;
+
+//	TerrainRenderer terrainRenderer;
+
 
 	Application();
 	~Application();
@@ -53,9 +37,19 @@ public:
 
 	bool isRunning();
 
-	Window& getWindow() {
-		return *m_window;
-	}
+//    wgpu::Device& getDevice() {
+//        return m_device;
+//    }
+//
+//    wgpu::Queue& getQueue() {
+//        return m_queue;
+//    }
+
+    wgpu::SwapChain& getSwapChain() {
+        return m_swapChain;
+    }
+
+
 
 	// Modifier parameters are true if they are pressed while onKey is called
 	// TODO: Just have implementation call for modifier keys and mouse position using window get methods instead of passing in?
@@ -79,20 +73,20 @@ private:
 	void initDepthBuffer();
 	void terminateDepthBuffer();
 
-	void initRenderPipeline();
-	void terminateRenderPipeline();
+//	void initRenderPipeline();
+//	void terminateRenderPipeline();
 
 	void initTexture();
 	void terminateTexture();
 
-	void initGeometry();
-	void terminateGeometry();
-
-	void initUniforms();
-	void terminateUniforms();
-
-	void initBindGroup();
-	void terminateBindGroup();
+//	void initGeometry();
+//	void terminateGeometry();
+//
+//	void initUniforms();
+//	void terminateUniforms();
+//
+//	void initBindGroup();
+//	void terminateBindGroup();
 
 	void initGui(); // called in onInit
 	void terminateGui(); // called in onFinish
@@ -118,20 +112,17 @@ private:
 //	Chunk chunk;
 
 	// updated
-	World world;
+	std::unique_ptr<World> world;
 
 
-
-	std::unique_ptr<Window> m_window;
 
 //	Camera m_camera;
 
 	// Window and Device
 	wgpu::Instance m_instance = nullptr;
 	wgpu::Surface m_surface = nullptr;
-	wgpu::Device m_device = nullptr;
-	wgpu::Queue m_queue = nullptr;
-	wgpu::TextureFormat m_swapChainFormat = wgpu::TextureFormat::Undefined;
+//	wgpu::Device m_device = nullptr;
+//	wgpu::Queue m_queue = nullptr;
 
 	// Keep the error callback alive
 	std::unique_ptr<wgpu::ErrorCallback> m_errorCallbackHandle;
@@ -145,25 +136,24 @@ private:
 	wgpu::SwapChain m_swapChain = nullptr;
 
 	// Depth Buffer
-	wgpu::TextureFormat m_depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
 	wgpu::Texture m_depthTexture = nullptr;
 	wgpu::TextureView m_depthTextureView = nullptr;
 
 	// Render Pipeline
-	wgpu::ShaderModule m_shaderModule = nullptr;
-	wgpu::BindGroupLayoutDescriptor m_bindGroupLayoutDesc{};
-	wgpu::BindGroup m_bindGroup = nullptr;
-	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
-	wgpu::RenderPipeline m_pipeline = nullptr;
+//	wgpu::ShaderModule m_shaderModule = nullptr;
+//	wgpu::BindGroupLayoutDescriptor m_bindGroupLayoutDesc{};
+//	wgpu::BindGroup m_bindGroup = nullptr;
+//	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
+//	wgpu::RenderPipeline m_pipeline = nullptr;
 
 	// Texture
 	wgpu::Sampler m_sampler = nullptr;
 	wgpu::Texture m_texture = nullptr;
 	wgpu::TextureView m_textureView = nullptr;
 
-    wgpu::Buffer m_vertexBuffer = nullptr;
-	wgpu::Buffer m_indexBuffer = nullptr;
-	wgpu::Buffer m_uniformBuffer = nullptr;
+//    wgpu::Buffer m_vertexBuffer = nullptr;
+//	wgpu::Buffer m_indexBuffer = nullptr;
+//	wgpu::Buffer m_uniformBuffer = nullptr;
 
 	glm::vec2 m_mousePos = glm::vec2(0.0f);
 	glm::vec2 m_mousePosNDC = glm::vec2(-1.0f, 1.0f);
@@ -174,23 +164,18 @@ private:
 
 
 
-
-
 	ShaderUniforms m_uniforms{};
 
-	glm::vec3 focalPoint;
 
-	// Rotate the object
-	float angle1; // arbitrary time
+public:
 
-	// Rotate the view point
-	float angle2;
+	glm::vec3 focalPoint{};
 
-	float ratio;
-	float focalLength;
-	float near;
-	float far;
-	float divider;
+	float ratio{};
+	float focalLength{};
+	float near{};
+	float far{};
+	float divider{};
 
 	glm::mat4 S = glm::mat4(1.0);
 	glm::mat4 T1 = glm::mat4(1.0);
@@ -199,6 +184,6 @@ private:
 	glm::mat4 R2 = glm::mat4(1.0);
 	glm::mat4 T2 = glm::mat4(1.0);
 
-	float fov;
+	float fov{};
 
 };

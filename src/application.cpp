@@ -1,38 +1,51 @@
 #include "application.h"
 
+
+#include "window.h"
+#include "globals.h"
 #include <imgui.h>
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
-#include <algorithm>
+#include "world.h"
+#include "terrain.h"
+#include "memory"
+
+std::unique_ptr<wgpu::Device> Application::device = nullptr;
+std::unique_ptr<wgpu::Queue> Application::queue = nullptr;
+
+wgpu::TextureFormat Application::swapChainFormat = wgpu::TextureFormat::BGRA8Unorm;
+wgpu::TextureFormat Application::depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 
-#include "color.h"
+Application::Application()  {
 
-Application::Application() : m_window(nullptr) {
 
-	initWorld();
-\
 	initWindowAndDevice();
 	initSwapChain();
 	initDepthBuffer();
-	initRenderPipeline();
-	initTexture();
-	initGeometry();
-	initUniforms();
-	initBindGroup();
-	initGui();
+//	initRenderPipeline();
+//	initTexture();
+//	initGeometry();
+//	initUniforms();
+//	initBindGroup();
+	initWorld();
+//	initGui();
+
+
+//	terrainRenderer = TerrainRenderer();
+
 }
 
 Application::~Application() {
 
+//	terminateGui();
 	terminateWorld();
 
-	terminateGui();
-	terminateBindGroup();
-	terminateUniforms();
-	terminateGeometry();
-	terminateTexture();
-	terminateRenderPipeline();
+//	terminateBindGroup();
+//	terminateUniforms();
+//	terminateGeometry();
+//	terminateTexture();
+//	terminateRenderPipeline();
 	terminateDepthBuffer();
 	terminateSwapChain();
 	terminateWindowAndDevice();
@@ -41,36 +54,39 @@ Application::~Application() {
 void Application::initWorld() {
 	noiseDesc = Noise::Descriptor();
 	// updated
-	world = World();
-	world.load(noiseDesc, 1);
+	world = std::make_unique<World>(World());
+	world->load(noiseDesc, 1);
 
 
 }
 
 void Application::terminateWorld() {
-	world.unload();
+	world->unload();
 }
 
 void Application::onFrame() {
+
+	world->update();
+
 
 	// Do nothing, this checks for ongoing asynchronous operations and call their callbacks
 	// Be sure to destroy/release buffers that relate to the callbacks outside the main loop.
 #ifdef WEBGPU_BACKEND_WGPU
 	// Non-standardized behavior: submit empty queue to flush callbacks
     // (wgpu-native also has a device.poll but its API is more complex)
-    m_queue.submit(0, nullptr);
+    Application::queue->submit(0, nullptr);
 #else
 	// Non-standard Dawn way
 	// Dawn doesn't check for errors immediately, only on device tick.
-	m_device.tick();
+	Application::device->tick();
 #endif
 
-	m_window->inputPollEvents();
+	Globals::window->inputPollEvents();
 
 	// Update uniform buffer
-	m_uniforms.time = static_cast<float>(glfwGetTime()); // glfwGetTime returns a double
+
 	// Only update the 1-st float of the buffer
-	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, time), &m_uniforms.time, sizeof(ShaderUniforms::time));
+//	Application::queue->writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, time), &m_uniforms.time, sizeof(ShaderUniforms::time));
 
 	// Rotate model matrix
 //	angle1 = m_uniforms.time;
@@ -78,17 +94,17 @@ void Application::onFrame() {
 //	m_uniforms.modelMatrix = R1 * S * T1;
 //	m_queue.writeBuffer(m_uniformBuffer, offsetof(ShaderUniforms, modelMatrix), &m_uniforms.modelMatrix, sizeof(ShaderUniforms::modelMatrix));
 
-	if (world.dirty)
-	{
-		world.unload();
-		world.load(noiseDesc, 1);
-		terminateGeometry();
-		terminateRenderPipeline();
-		initRenderPipeline();
-		initGeometry();
-	}
+//	if (world->dirty)
+//	{
+//		world->unload();
+//		world->load(noiseDesc, 1);
+//		terminateGeometry();
+//		terminateRenderPipeline();
+//		initRenderPipeline();
+//		initGeometry();
+//	}
 
-	world.update();
+	world->update();
 
 //	if (chunk.dirty)
 //	{
@@ -105,7 +121,7 @@ void Application::onFrame() {
 
 	wgpu::CommandEncoderDescriptor commandEncoderDesc{};
 	commandEncoderDesc.label = "Command Encoder";
-	auto commandEncoder = m_device.createCommandEncoder(commandEncoderDesc);
+	auto commandEncoder = Application::device->createCommandEncoder(commandEncoderDesc);
 
 
 	wgpu::RenderPassColorAttachment renderPassColorAttachment{};
@@ -155,24 +171,41 @@ void Application::onFrame() {
 	renderPassDesc.timestampWriteCount = 0;
 	renderPassDesc.timestampWrites = nullptr;
 
+
+	// Start of per object specifics?
+
+
+
+
 	wgpu::RenderPassEncoder renderPass = commandEncoder.beginRenderPass(renderPassDesc);
+	renderPass.setPipeline(world->terrainRenderer->m_pipeline);
+
+//	world->render(renderPass);
+	for (auto& pos : world->terrain->loadManager.chunksToRender) {
+		Chunk& chunk =  world->terrain->chunks.at(pos);
+		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
+		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
+		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
+		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+	}
+
 
 	// Select which pipeline to use
-	renderPass.setPipeline(m_pipeline);
-
-    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world.chunk.mesh.vertices.size() * sizeof(Vertex));
-
-	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world.chunk.mesh.indices.size() * sizeof(uint16_t));
-
-	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
-
-	// Draw triangles
-	// We use the `vertexCount` variable instead of hard-coding the vertex count
-//	renderPass.draw(m_vertexCount,1,0,0);
-	renderPass.drawIndexed(world.chunk.mesh.indices.size(), 1, 0, 0, 0);
+//	renderPass.setPipeline(m_pipeline);
+//
+//    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world->chunk.mesh.vertices.size() * sizeof(Vertex));
+//
+//	renderPass.setIndexBuffer(m_indexBuffer, wgpu::IndexFormat::Uint16, 0, world->chunk.mesh.indices.size() * sizeof(uint16_t));
+//
+//	renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
+//
+//	// Draw triangles
+//	// We use the `vertexCount` variable instead of hard-coding the vertex count
+////	renderPass.draw(m_vertexCount,1,0,0);
+//	renderPass.drawIndexed(world->chunk.mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
-	updateGui(renderPass);
+//	updateGui(renderPass);
 
 	renderPass.end();
 
@@ -183,7 +216,9 @@ void Application::onFrame() {
 	wgpu::CommandBufferDescriptor commandBufferDesc{};
 	commandBufferDesc.label = "Command Buffer";
 	auto commandBuffer = commandEncoder.finish(commandBufferDesc);
-	m_queue.submit(commandBuffer);
+	Application::queue->submit(commandBuffer);
+
+
 
 	// Present swap chain
 	m_swapChain.present();
@@ -191,7 +226,7 @@ void Application::onFrame() {
 }
 
 bool Application::isRunning() {
-	return !m_window->shouldClose();
+	return !Globals::window->shouldClose();
 }
 
 void Application::initWindowAndDevice() {
@@ -206,11 +241,11 @@ void Application::initWindowAndDevice() {
 	windowConfig.width = 640;
 	windowConfig.height = 480;
 	windowConfig.resizable = true;
-	m_window = std::make_unique<Window>(&windowConfig, this);;
+	Globals::window = std::make_unique<Window>(&windowConfig, this);;
 
 	// Get surface
 	// ---------------------------------------------------
-	m_surface = m_window->getSurface(m_instance);
+	m_surface = Globals::window->getSurface(m_instance);
 
 
 	// Get adapter
@@ -245,20 +280,21 @@ void Application::initWindowAndDevice() {
 	// Set required limits for the device.
 	wgpu::RequiredLimits requiredLimits = wgpu::Default; // Don't forget to set to default first!
 	requiredLimits.limits.maxVertexAttributes = 3; // Imgui uses 3
-	requiredLimits.limits.maxVertexBuffers = 2;
+	requiredLimits.limits.maxVertexBuffers = 8;
 	// Maximum size of a buffer is 6 vertices of 2 float each
 	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
 	// Maximum stride between 2 consecutive vertices in the vertex buffer
-	requiredLimits.limits.maxVertexBufferArrayStride = 6 * sizeof(float); // Needs to be 5 for imgui
+	requiredLimits.limits.maxVertexBufferArrayStride = sizeof(Vertex); // Needs to be 5 for imgui
 
 	// Must be set even if we do not use storage or uniform buffers for now
 	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
 	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
 	requiredLimits.limits.maxInterStageShaderComponents = 6; // 6 used by imgui, 3 by us
-	requiredLimits.limits.maxBindGroups = 3; // Required to be at least 2 for ImGui
+	requiredLimits.limits.maxBindGroups = 4; // Required to be at least 2 for ImGui
 
 	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
 	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
+
 
 	// Allow textures up to 2K
 	requiredLimits.limits.maxTextureDimension1D = 2048;
@@ -268,6 +304,9 @@ void Application::initWindowAndDevice() {
 	requiredLimits.limits.maxSamplersPerShaderStage = 1;
 
 
+
+
+
 	wgpu::DeviceDescriptor deviceDesc{};
 	deviceDesc.nextInChain = nullptr;
 	deviceDesc.label = "James Device";
@@ -275,17 +314,17 @@ void Application::initWindowAndDevice() {
 	deviceDesc.requiredLimits = &requiredLimits;
 	deviceDesc.defaultQueue.label = "Default Queue";
 
-	m_device = adapter.requestDevice(deviceDesc);
-	if (!m_device) {
+	Application::device = std::make_unique<wgpu::Device>(adapter.requestDevice(deviceDesc));
+	if (!Application::device) {
 		throw std::runtime_error("Could not obtain device!");
 	}
-	std::cout << "Got device: " << m_device << std::endl;
+	std::cout << "Got device: " << Application::device << std::endl;
 
 	// See what adapter and device limits are
 	adapter.getLimits(&supportedLimits);
 	std::cout << "adapter.maxVertexAttributes: " << supportedLimits.limits.maxVertexAttributes << std::endl;
 
-	m_device.getLimits(&supportedLimits);
+	Application::device->getLimits(&supportedLimits);
 	std::cout << "device.maxVertexAttributes: " << supportedLimits.limits.maxVertexAttributes << std::endl;
 
 
@@ -294,22 +333,22 @@ void Application::initWindowAndDevice() {
 	// Need to gamma correct both WPGU and DAWN to match up.
 	// This is because Dawn only supports BGRA8Unorm right now
 #ifdef WEBGPU_BACKEND_WGPU
-	m_swapChainFormat = m_surface.getPreferredFormat(adapter);
+	swapChainFormat = m_surface.getPreferredFormat(adapter);
 #else
-	m_swapChainFormat = wgpu::TextureFormat::BGRA8Unorm; // Dawn only supports this right now.
+	swapChainFormat = wgpu::TextureFormat::BGRA8Unorm; // Dawn only supports this right now.
 #endif
 	adapter.release();
 
 
 	// Error callback for more debug info
-	m_errorCallbackHandle = m_device.setUncapturedErrorCallback([](wgpu::ErrorType type, char const* message) {
+	m_errorCallbackHandle = Application::device->setUncapturedErrorCallback([](wgpu::ErrorType type, char const* message) {
 		std::cerr << "Device error: type " << type;
 		if (message) std::cerr << " (message: " << message << ")";
 		std::cerr << std::endl;
 	});
 
 #ifdef WEBGPU_BACKEND_DAWN
-	m_deviceLostCallbackHandle = m_device.setDeviceLostCallback([](wgpu::DeviceLostReason type, char const* message) {
+	m_deviceLostCallbackHandle = Application::device->setDeviceLostCallback([](wgpu::DeviceLostReason type, char const* message) {
 		std::cerr << "Device lost: reason " << type;
 		if (message) std::cerr << " (message: " << message << ")";
 		std::cerr << std::endl;
@@ -319,24 +358,24 @@ void Application::initWindowAndDevice() {
 	// Get Queue
 	// ---------------------------------------------------
 	// Can submit commands, or write buffer/texture
-	m_queue = m_device.getQueue();
-	std::cout << "Command Queue: " << m_queue << std::endl;
+	Application::queue = std::make_unique<wgpu::Queue>(Application::device->getQueue());
+	std::cout << "Command Queue: " << Application::queue << std::endl;
 
 	// Setup queue work done callback
 	auto onQueueWorkDone = [](wgpu::QueueWorkDoneStatus status) {
 		std::cout << "Queued work finished with status: " << status << std::endl;
 	};
 #ifdef WEBGPU_BACKEND_WGPU // Dawn does use hints right now
-	m_queue.onSubmittedWorkDone(onQueueWorkDone);
+	Application::queue->onSubmittedWorkDone(onQueueWorkDone);
 #else
-	m_queueWorkDoneCallbackHandle = m_queue.onSubmittedWorkDone(0, onQueueWorkDone);
+	m_queueWorkDoneCallbackHandle = Application::queue->onSubmittedWorkDone(0, onQueueWorkDone);
 #endif
 
 }
 
 void Application::terminateWindowAndDevice() {
-	m_queue.release();
-	m_device.release();
+	Application::queue->release();
+	Application::device->release();
 	m_surface.release();
 	m_instance.release();
 }
@@ -347,14 +386,14 @@ void Application::initSwapChain() {
 	wgpu::SwapChainDescriptor swapChainDesc{};
 	swapChainDesc.nextInChain = nullptr;
 	swapChainDesc.label = "Swapchain";
-	glm::ivec2 size = m_window->getSize();
+	glm::ivec2 size = Globals::window->getSize();
 	swapChainDesc.width = size.x;
 	swapChainDesc.height = size.y;
 	swapChainDesc.usage = wgpu::TextureUsage::RenderAttachment;
-	swapChainDesc.format = m_swapChainFormat;
+	swapChainDesc.format = Application::swapChainFormat;
 	swapChainDesc.presentMode = wgpu::PresentMode::Fifo;
 
-	m_swapChain = m_device.createSwapChain(m_surface, swapChainDesc);
+	m_swapChain = Application::device->createSwapChain(m_surface, swapChainDesc);
 	if (!m_swapChain) {
 		throw std::runtime_error("Could not create swap chain!");
 	}
@@ -367,18 +406,19 @@ void Application::terminateSwapChain() {
 
 void Application::initDepthBuffer() {
 
+	depthTextureFormat = wgpu::TextureFormat::Depth24Plus;
 
 	// Create the depth texture
 	wgpu::TextureDescriptor depthTextureDesc{};
 	depthTextureDesc.dimension = wgpu::TextureDimension::_2D;
-	depthTextureDesc.format = m_depthTextureFormat;
+	depthTextureDesc.format = Application::depthTextureFormat;
 	depthTextureDesc.mipLevelCount = 1;
 	depthTextureDesc.sampleCount = 1;
-	depthTextureDesc.size = { static_cast<uint32_t>(m_window->getWidth()), static_cast<uint32_t>(m_window->getHeight()), 1 };
+	depthTextureDesc.size = { static_cast<uint32_t>(Globals::window->getWidth()), static_cast<uint32_t>(Globals::window->getHeight()), 1 };
 	depthTextureDesc.usage = wgpu::TextureUsage::RenderAttachment;
 	depthTextureDesc.viewFormatCount = 1;
-	depthTextureDesc.viewFormats = (WGPUTextureFormat*)&m_depthTextureFormat;
-	m_depthTexture = m_device.createTexture(depthTextureDesc);
+	depthTextureDesc.viewFormats = (WGPUTextureFormat*)&depthTextureFormat;
+	m_depthTexture = Application::device->createTexture(depthTextureDesc);
 	std::cout << "Depth texture: " << m_depthTexture << std::endl;
 
 	// Create the view of the depth texture manipulated by the rasterizer
@@ -390,7 +430,7 @@ void Application::initDepthBuffer() {
 	depthTextureViewDesc.baseMipLevel = 0;
 	depthTextureViewDesc.mipLevelCount = 1;
 	depthTextureViewDesc.dimension = wgpu::TextureViewDimension::_2D;
-	depthTextureViewDesc.format = m_depthTextureFormat;
+	depthTextureViewDesc.format = Application::depthTextureFormat;
 	m_depthTextureView = m_depthTexture.createView(depthTextureViewDesc);
 	std::cout << "Depth texture view: " << m_depthTextureView << std::endl;
 }
@@ -401,145 +441,7 @@ void Application::terminateDepthBuffer() {
 	m_depthTexture.release();
 }
 
-void Application::initRenderPipeline() {
 
-	std::cout << "Creating shader module..." << std::endl;
-	m_shaderModule = Shader::loadShaderModule(m_device, RESOURCE_DIR "/shaders/static_triangle.wgsl");
-	std::cout << "Shader module: " << m_shaderModule << std::endl;
-
-
-	std::cout << "Creating render pipeline..." << std::endl;
-	wgpu::RenderPipelineDescriptor pipelineDesc{};
-
-
-	// Vector because there are 3 attributes in separate buffers
-	// (As opposed to multiple vertex attributes in one buffer)
-    // SIKE they are oe buffer now (so there are 3 attributes in one buffer)
-	wgpu::VertexBufferLayout vertexBufferLayout;
-
-    std::vector<wgpu::VertexAttribute> vertexAttribs(3);
-
-    // Position attribute
-    vertexAttribs[0].shaderLocation = 0; // Corresponds to @location(...)
-    vertexAttribs[0].format = wgpu::VertexFormat::Float32x3; // size of position, Means vec2<f32> in the shader
-    vertexAttribs[0].offset = 0; // Index of the first element
-
-    // Normal attribute
-    vertexAttribs[1].shaderLocation = 1; // Corresponds to @location(...)
-    vertexAttribs[1].format = wgpu::VertexFormat::Float32x3; // size of normal, Means vec3<f32> in the shader
-    vertexAttribs[1].offset = 1 * sizeof(glm::vec3); // Index of the first element
-
-	// Color attribute
-    vertexAttribs[2].shaderLocation = 2; // Corresponds to @location(...)
-    vertexAttribs[2].format = wgpu::VertexFormat::Float32x3; // size of color, Means vec3<f32> in the shader
-    vertexAttribs[2].offset = 2 * sizeof(glm::vec3); // Index of the first element
-
-    // Build vertex buffer layout
-	vertexBufferLayout.attributeCount = 3;
-	vertexBufferLayout.attributes = vertexAttribs.data();
-	vertexBufferLayout.arrayStride = sizeof(Vertex); // size of color, since only color attribs in this buffer
-	vertexBufferLayout.stepMode = wgpu::VertexStepMode::Vertex;
-
-
-	pipelineDesc.vertex.bufferCount = 1; //static_cast<uint32_t>(vertexBufferLayouts.size());
-	pipelineDesc.vertex.buffers = &vertexBufferLayout;
-
-	// Vertex Shader
-	pipelineDesc.vertex.module = m_shaderModule;
-	pipelineDesc.vertex.entryPoint = "vs_main";
-	pipelineDesc.vertex.constantCount = 0;
-	pipelineDesc.vertex.constants = nullptr;
-
-	// Primitive Assembly & Rasterization
-
-	if (world.isWireFrame()) {
-		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList;
-	} else {
-		pipelineDesc.primitive.topology = wgpu::PrimitiveTopology::TriangleList;
-	}
-	pipelineDesc.primitive.stripIndexFormat = wgpu::IndexFormat::Undefined; // Vertices considered sequentially
-	pipelineDesc.primitive.frontFace = wgpu::FrontFace::CCW; // Counter-clockwise vertices are front-facing
-	pipelineDesc.primitive.cullMode = wgpu::CullMode::None; // Do not cull any triangles for debugging
-
-	// Fragment Shader
-	wgpu::FragmentState fragmentState{};
-	pipelineDesc.fragment = &fragmentState;
-	fragmentState.module = m_shaderModule;
-	fragmentState.entryPoint = "fs_main";
-	fragmentState.constantCount = 0;
-	fragmentState.constants = nullptr;
-
-	// Blend State
-	wgpu::BlendState blendState{};
-	blendState.color.srcFactor = wgpu::BlendFactor::SrcAlpha;
-	blendState.color.dstFactor = wgpu::BlendFactor::OneMinusSrcAlpha;
-	blendState.color.operation = wgpu::BlendOperation::Add;
-	blendState.alpha.srcFactor = wgpu::BlendFactor::Zero;
-	blendState.alpha.dstFactor = wgpu::BlendFactor::One;
-	blendState.alpha.operation = wgpu::BlendOperation::Add;
-
-	wgpu::ColorTargetState colorTargetState{};
-	colorTargetState.format = m_swapChainFormat;
-	colorTargetState.blend = &blendState;
-	colorTargetState.writeMask = wgpu::ColorWriteMask::All; // Could write to only some channels if we wanted
-
-	// Only one target because our render pass only has one output color attachment.
-	fragmentState.targetCount = 1;
-	fragmentState.targets = &colorTargetState;
-
-	// Depth & Stencil
-	// We set up a depth buffer state for the render pipeline
-	wgpu::DepthStencilState depthStencilState = wgpu::Default;
-	// Keep a fragment only if its depth is lower than the previously blended one
-	depthStencilState.depthCompare = wgpu::CompareFunction::Less;
-	// Each time a fragment is blended into the target, we update the value of the Z-buffer
-	depthStencilState.depthWriteEnabled = true;
-	// Store the format in a variable as later parts of the code depend on it
-	depthStencilState.format = m_depthTextureFormat;
-	// Deactivate the stencil altogether
-	depthStencilState.stencilReadMask = 0;
-	depthStencilState.stencilWriteMask = 0;
-
-	pipelineDesc.depthStencil = &depthStencilState;
-
-	// Multisampling
-	pipelineDesc.multisample.count = 1; // Samples per pixel
-	pipelineDesc.multisample.mask = 0xFFFFFFFFu; // Default value for mask (all bits on)
-	pipelineDesc.multisample.alphaToCoverageEnabled = false; // Irrelevant for count=1
-
-	// Create binding layout (don't forget to = Default)
-	wgpu::BindGroupLayoutEntry bindingLayout = wgpu::Default;
-	bindingLayout.binding = 0;
-	bindingLayout.visibility = wgpu::ShaderStage::Vertex | wgpu::ShaderStage::Fragment;
-	bindingLayout.buffer.type = wgpu::BufferBindingType::Uniform;
-	bindingLayout.buffer.minBindingSize = sizeof(ShaderUniforms);
-
-	// Create a bind group layout
-	wgpu::BindGroupLayoutDescriptor bindGroupLayoutDesc{};
-	bindGroupLayoutDesc.entryCount = 1;
-	bindGroupLayoutDesc.entries = &bindingLayout;
-	m_bindGroupLayout = m_device.createBindGroupLayout(bindGroupLayoutDesc);
-
-	// Pipeline Layout
-	wgpu::PipelineLayoutDescriptor layoutDesc{};
-	layoutDesc.label = "Pipeline Layout";
-	layoutDesc.bindGroupLayoutCount = 1;
-	layoutDesc.bindGroupLayouts = (WGPUBindGroupLayout*)&m_bindGroupLayout;
-
-	pipelineDesc.layout = m_device.createPipelineLayout(layoutDesc);
-
-	m_pipeline = m_device.createRenderPipeline(pipelineDesc);
-	if (!m_pipeline) {
-		throw std::runtime_error("Could not create swap chain!");
-	}
-	std::cout << "Render pipeline: " << m_pipeline << std::endl;
-}
-
-void Application::terminateRenderPipeline() {
-	m_pipeline.release();
-	m_shaderModule.release();
-	m_bindGroupLayout.release();
-}
 
 void Application::initTexture() {
 
@@ -552,119 +454,119 @@ void Application::terminateTexture() {
 
 
 
-void Application::initGeometry() {
-
-	std::cout << "Creating geometry..." << std::endl;
-
-//	noise = Noise(noiseDesc);
-
-//	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
-
-
-	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
-	bufferDesc.mappedAtCreation = false;
-
-    // WEAVED VERTEX BUFFER
-    bufferDesc.size = world.chunk.mesh.vertices.size() * sizeof(Vertex);
-    m_vertexBuffer = m_device.createBuffer(bufferDesc);
-    // Upload vertex data to vertex buffer
-    m_queue.writeBuffer(m_vertexBuffer, 0, world.chunk.mesh.vertices.data(), bufferDesc.size);
-    std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
-
-
-	// Create index buffer
-	bufferDesc.size = world.chunk.mesh.indices.size() * sizeof(uint16_t);
-	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
-	m_indexBuffer = m_device.createBuffer(bufferDesc);
-	// Upload index data to index buffer
-	m_queue.writeBuffer(m_indexBuffer, 0, world.chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
-	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
-
-}
-
-void Application::terminateGeometry() {
-
-    m_vertexBuffer.destroy();
-	m_indexBuffer.destroy();
-	m_vertexBuffer.release();
-	m_indexBuffer.release();
-}
-
-void Application::initUniforms() {
-
-	std::cout << "Creating uniforms..." << std::endl;
-
-	// Create uniform buffer
-	wgpu::BufferDescriptor bufferDesc{};
-	bufferDesc.size = sizeof(ShaderUniforms);
-	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
-	bufferDesc.mappedAtCreation = false;
-	m_uniformBuffer = m_device.createBuffer(bufferDesc);
-
-//	focalPoint = {0.0, 0.0, -2.0};
-
-	// Rotate the object
-	angle1 = 2.0f; // arbitrary time
-
-	// Rotate the view point
-	angle2 = 3.0f * std::numbers::pi / 4.0f;
-
-	ratio = static_cast<float>(m_window->getWidth()) / static_cast<float>(m_window->getHeight());
-	focalLength = 2.0;
-	near = 0.01f;
-	far = 1000.0f;
-	divider = 1 / (focalLength * (far - near));
-
-
-	// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
-
-	// Model, translates the object relative to the world
-//	S = glm::scale(S, glm::vec3(0.5f));
-//	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
-//	R1 = glm::mat4(1.0);
-	m_uniforms.modelMatrix = T1 * R1 * S;
-
-	m_uniforms.viewMatrix = world.camera.updateViewMatrix();
-
-	// Projection
-	fov = 2 * glm::atan(1 / focalLength);
-	m_uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
-
-
-	m_uniforms.time = 1.0f;
-	m_uniforms.color = { 0.5f, 0.6f, 1.0f, 1.0f };
-	m_queue.writeBuffer(m_uniformBuffer, 0, &m_uniforms, sizeof(ShaderUniforms));
-}
-
-void Application::terminateUniforms() {
-	m_uniformBuffer.release();
-}
-
-void Application::initBindGroup() {
-
-	std::cout << "Creating bind group..." << std::endl;
-
-	// Create a binding
-	wgpu::BindGroupEntry binding{};
-	binding.binding = 0;
-	binding.buffer = m_uniformBuffer;
-	binding.offset = 0;
-	binding.size = sizeof(ShaderUniforms);
-
-	// A bind group contains one or multiple bindings
-	wgpu::BindGroupDescriptor bindGroupDesc;
-	bindGroupDesc.layout = m_bindGroupLayout;
-	bindGroupDesc.entryCount = 1;
-	bindGroupDesc.entries = &binding;
-	m_bindGroup = m_device.createBindGroup(bindGroupDesc);
-
-
-}
-
-void Application::terminateBindGroup() {
-	m_bindGroup.release();
-}
+//void Application::initGeometry() {
+//
+//	std::cout << "Creating geometry..." << std::endl;
+//
+////	noise = Noise(noiseDesc);
+//
+////	chunk.load(noise, {0, 0}, noiseDesc.wireFrame);
+//
+//
+//	wgpu::BufferDescriptor bufferDesc{};
+//	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Vertex;
+//	bufferDesc.mappedAtCreation = false;
+//
+//    // WEAVED VERTEX BUFFER
+//    bufferDesc.size = world->chunk.mesh.vertices.size() * sizeof(Vertex);
+//    m_vertexBuffer = m_device.createBuffer(bufferDesc);
+//    // Upload vertex data to vertex buffer
+//    m_queue.writeBuffer(m_vertexBuffer, 0, world->chunk.mesh.vertices.data(), bufferDesc.size);
+//    std::cout << "Vertex Buffer: " << m_vertexBuffer << std::endl;
+//
+//
+//	// Create index buffer
+//	bufferDesc.size = world->chunk.mesh.indices.size() * sizeof(uint16_t);
+//	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Index;
+//	m_indexBuffer = m_device.createBuffer(bufferDesc);
+//	// Upload index data to index buffer
+//	m_queue.writeBuffer(m_indexBuffer, 0, world->chunk.mesh.indices.data(), bufferDesc.size); // Whack ass size because it needs to be a multiple of 4
+//	std::cout << "Index Buffer: " << m_indexBuffer << std::endl;
+//
+//}
+//
+//void Application::terminateGeometry() {
+//
+//    m_vertexBuffer.destroy();
+//	m_indexBuffer.destroy();
+//	m_vertexBuffer.release();
+//	m_indexBuffer.release();
+//}
+//
+//void Application::initUniforms() {
+//
+//	std::cout << "Creating uniforms..." << std::endl;
+//
+//	// Create uniform buffer
+//	wgpu::BufferDescriptor bufferDesc{};
+//	bufferDesc.size = sizeof(ShaderUniforms);
+//	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+//	bufferDesc.mappedAtCreation = false;
+//	m_uniformBuffer = m_device.createBuffer(bufferDesc);
+//
+////	focalPoint = {0.0, 0.0, -2.0};
+//
+//	// Rotate the object
+//	angle1 = 2.0f; // arbitrary time
+//
+//	// Rotate the view point
+//	angle2 = 3.0f * std::numbers::pi / 4.0f;
+//
+//	ratio = static_cast<float>(Globals::window->getWidth()) / static_cast<float>(Globals::window->getHeight());
+//	focalLength = 2.0;
+//	near = 0.01f;
+//	far = 1000.0f;
+//	divider = 1 / (focalLength * (far - near));
+//
+//
+//	// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
+//
+//	// Model, translates the object relative to the world
+////	S = glm::scale(S, glm::vec3(0.5f));
+////	T1 = glm::translate(T1, glm::vec3(0.0, 0.0, 0.0));
+////	R1 = glm::mat4(1.0);
+//	m_uniforms.modelMatrix = T1 * R1 * S;
+//
+//	m_uniforms.viewMatrix = world->camera.updateViewMatrix();
+//
+//	// Projection
+//	fov = 2 * glm::atan(1 / focalLength);
+//	m_uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
+//
+//
+//	m_uniforms.time = 1.0f;
+//	m_uniforms.color = { 0.5f, 0.6f, 1.0f, 1.0f };
+//	m_queue.writeBuffer(m_uniformBuffer, 0, &m_uniforms, sizeof(ShaderUniforms));
+//}
+//
+//void Application::terminateUniforms() {
+//	m_uniformBuffer.release();
+//}
+//
+//void Application::initBindGroup() {
+//
+//	std::cout << "Creating bind group..." << std::endl;
+//
+//	// Create a binding
+//	wgpu::BindGroupEntry binding{};
+//	binding.binding = 0;
+//	binding.buffer = m_uniformBuffer;
+//	binding.offset = 0;
+//	binding.size = sizeof(ShaderUniforms);
+//
+//	// A bind group contains one or multiple bindings
+//	wgpu::BindGroupDescriptor bindGroupDesc;
+//	bindGroupDesc.layout = m_bindGroupLayout;
+//	bindGroupDesc.entryCount = 1;
+//	bindGroupDesc.entries = &binding;
+//	m_bindGroup = m_device.createBindGroup(bindGroupDesc);
+//
+//
+//}
+//
+//void Application::terminateBindGroup() {
+//	m_bindGroup.release();
+//}
 
 void Application::initGui() {
 
@@ -676,8 +578,8 @@ void Application::initGui() {
 	ImGui::GetIO();
 
 	// Setup Platform/Renderer backends
-	ImGui_ImplGlfw_InitForOther(m_window->handle, true);
-	ImGui_ImplWGPU_Init(m_device, 3, m_swapChainFormat, m_depthTextureFormat);
+	ImGui_ImplGlfw_InitForOther(Globals::window->handle, true);
+	ImGui_ImplWGPU_Init(*Application::device, 3, Application::swapChainFormat, Application::depthTextureFormat);
 }
 
 void Application::terminateGui() {
@@ -702,12 +604,12 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 
 	ImGui::Text("Camera:");					// Display some text (you can use a format strings too)
 	// Text the camera rotation
-	ImGui::Text("Rotation: (%.1f, %.1f)", world.camera.rotation.x, world.camera.rotation.y);
+	ImGui::Text("Rotation: (%.1f, %.1f)", world->camera.rotation.x, world->camera.rotation.y);
 	// Text the camera position
-	ImGui::Text("Position: (%.1f, %.1f, %.1f)", world.camera.position.x, world.camera.position.y, world.camera.position.z);
+	ImGui::Text("Position: (%.1f, %.1f, %.1f)", world->camera.position.x, world->camera.position.y, world->camera.position.z);
 
 	// Text the camera zoom
-	ImGui::Text("Zoom: %.1f", world.camera.zoom);
+	ImGui::Text("Zoom: %.1f", world->camera.zoom);
 
 //	ImGui::Checkbox("Another Window", &show_another_window);
 
@@ -718,6 +620,8 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 //	if (ImGui::SliderFloat("triangle scale", &m_scale, 0.01f, 50.0f)) {		// Edit 1 int using a slider
 //		chunk.needs_update = true;
 //	}
+
+	bool updateTerrain = false;
 
 	const char* items[] = { "Linear", "SmoothStep", "Smoother", "Cubic" };
 
@@ -745,7 +649,7 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 			noiseDesc.function = Noise::Function::ValueCubic;
 			break;
 		}
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 
@@ -757,40 +661,40 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 		else {
 			noiseDesc.fractal = Noise::Fractal::None;
 		}
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.1f, 20.0f)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderFloat("Frequency", &noiseDesc.frequency, 0.1f, 5.0f)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderInt("Octaves", &noiseDesc.octaves, 1, 6)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderFloat("Lacunarity", &noiseDesc.lacunarity, 0.0f, 5.0f)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderFloat("Gain", &noiseDesc.gain, 0.0f, 1.0f)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
 	if (ImGui::SliderFloat("Weighted Strength", &noiseDesc.weightedStrength, 0.0f, 1.0f)) {
-		world.dirty = true;
+		updateTerrain = true;
 	}
 
-	bool wireFrame = world.isWireFrame();
+	bool wireFrame = world->terrain->isWireFrame();
 	if (ImGui::Checkbox("WireFrame", &wireFrame)) {            // Edit bools storing our window open/close state
-		world.setWireFrame(wireFrame);
+		world->terrain->setWireFrame(wireFrame);
 	}
 
-    if (world.dirty) {
-        world.setNoise(noiseDesc);
+    if (updateTerrain) {
+        world->terrain->setNoise(noiseDesc);
     }
 
 
@@ -831,16 +735,16 @@ void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::
 }
 
 void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
-	if (world.camera.dragState.active) {
+	if (world->camera.dragState.active) {
 		glm::vec2 currentMouse = mousePos;
 
-		float deltaX = (currentMouse.x - world.camera.dragState.startMouse.x) * world.camera.dragState.sensitivity;
-		float deltaY = (currentMouse.y - world.camera.dragState.startMouse.y) * world.camera.dragState.sensitivity;
-		world.camera.rotation.x = world.camera.dragState.startRotation.x - deltaX;
-		world.camera.rotation.y = world.camera.dragState.startRotation.y - deltaY;
+		float deltaX = (currentMouse.x - world->camera.dragState.startMouse.x) * world->camera.dragState.sensitivity;
+		float deltaY = (currentMouse.y - world->camera.dragState.startMouse.y) * world->camera.dragState.sensitivity;
+		world->camera.rotation.x = world->camera.dragState.startRotation.x - deltaX;
+		world->camera.rotation.y = world->camera.dragState.startRotation.y - deltaY;
 
 		// Clamp to avoid going too far when orbiting up/down
-		world.camera.rotation.y = glm::clamp(world.camera.rotation.y, glm::radians(0.1f), glm::radians(179.9f));
+		world->camera.rotation.y = glm::clamp(world->camera.rotation.y, glm::radians(0.1f), glm::radians(179.9f));
 
 		updateViewMatrix();
 	}
@@ -850,12 +754,12 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 	if (button == Input::MouseButton::Left) {
 		switch (buttonAction) {
 			case Input::Action::Press:
-				world.camera.dragState.active = true;
-				world.camera.dragState.startMouse = mousePos;
-				world.camera.dragState.startRotation = world.camera.rotation;
+				world->camera.dragState.active = true;
+				world->camera.dragState.startMouse = mousePos;
+				world->camera.dragState.startRotation = world->camera.rotation;
 				break;
 			case Input::Action::Release:
-				world.camera.dragState.active = false;
+				world->camera.dragState.active = false;
 				break;
 			default:
 				break;
@@ -864,17 +768,21 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 }
 
 void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
-	world.camera.zoom += world.camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
-	world.camera.zoom = glm::clamp(world.camera.zoom, -5.0f, 2.0f);
+	world->camera.zoom += world->camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
+	world->camera.zoom = glm::clamp(world->camera.zoom, -5.0f, 2.0f);
 	updateViewMatrix();
 }
 
 void Application::updateViewMatrix() {
-	m_uniforms.viewMatrix = world.camera.updateViewMatrix();
-	m_queue.writeBuffer(
-			m_uniformBuffer,
-			offsetof(ShaderUniforms, viewMatrix),
-			&m_uniforms.viewMatrix,
-			sizeof(ShaderUniforms::viewMatrix)
-	);
+	m_uniforms.viewMatrix = world->camera.updateViewMatrix();
+
+	for (auto& [key, chunk] : world->terrain->chunks) {
+		Application::queue->writeBuffer(
+				chunk.mesh.uniformBuffer,
+				offsetof(ShaderUniforms, viewMatrix),
+				&chunk.mesh.uniforms.viewMatrix,
+				sizeof(ShaderUniforms::viewMatrix)
+		);
+	}
+
 }

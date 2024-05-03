@@ -1,6 +1,13 @@
 #pragma once
 
-#include "terrain.h"
+#include "types.h"
+#include "camera.h"
+#include "noise/noise.h"
+#include "terrain_renderer.h"
+
+class Terrain;
+class Chunk;
+//class TerrainRenderer;
 
 class World {
 public:
@@ -10,68 +17,44 @@ public:
 	// Skybox
 	// Etc.
 
+
 	Camera camera;
-	Chunk chunk;
-	bool dirty;
+	glm::vec3 focalPoint{};
+	float ratio{};
+	float focalLength{};
+	float near{};
+	float far{};
+	float divider{};
+	glm::mat4 S = glm::mat4(1.0);
+	glm::mat4 T1 = glm::mat4(1.0);
+	glm::mat4 R1 = glm::mat4(1.0);
+	glm::mat4 R2 = glm::mat4(1.0);
+	glm::mat4 T2 = glm::mat4(1.0);
+	float fov{};
+
+	std::unique_ptr<TerrainRenderer> terrainRenderer;
+	Noise::Descriptor noiseDesc;
+	std::unique_ptr<Terrain> terrain;
+	glm::ivec2 center{};
 
 
-	World() {
-		size = 0;
-		wireFrame = false;
-		dirty = false;
+	Chunk* chunk;
 
-		camera = Camera();
-	};
-
-	void load(Noise::Descriptor noiseDesc, int worldSize = 1) {
-		this->size = worldSize;
-		this->noise = Noise(noiseDesc);
-		camera.center = {worldSize * Chunk::DefaultChunkSize / 2.0f, 0.0f, worldSize * Chunk::DefaultChunkSize / 2.0f};
-//		chunks.resize(worldSize * worldSize);
-//		for (int row = 0; row < size; row++) {
-//			for (int col = 0; col < size; col++) {
-//				chunks[row * size + col].load(noise, {row, col}, wireFrame);
-//			}
-//		}
+    // TODO: Update app to use terrain class instead of chunk/world
+    // TODO: "Player" class? holds the center to be used for generating chunks. Doesn't necessarily have to have the camera
 
 
-        chunk = Chunk(noise, {0, 0});
-	}
+	World();
 
-    void setNoise(Noise::Descriptor noiseDesc) {
-        noise = Noise(noiseDesc);
-        dirty = true;
-    }
-
-	void setWireFrame(bool wire) {
-		if (wire == wireFrame) return;
-		wireFrame = wire;
-		dirty = true;
-	}
-
-	[[nodiscard]] bool isWireFrame() const {
-		return wireFrame;
-	}
-
-
-	void update() {
-
-        if (dirty) {
-            chunk = Chunk(noise, {0, 0});
-            dirty = false;
-        }
-
-		dirty = false;
-	}
-
-	void unload() {
-
-	}
+	void load(Noise::Descriptor noiseDescriptor, int worldSize = 1);
 
 
 
-private:
-	int size; // Number of chunks per side of the world
-	bool wireFrame;
-	Noise noise;
+	void update();
+
+	void unload();
+
+	void render(wgpu::RenderPassEncoder& renderPass);
+
+
 };

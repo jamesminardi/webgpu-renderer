@@ -312,69 +312,74 @@ private:
 	}
 };
 
-
-class NoiseTable {
-public:
-	constexpr static int DefaultSize = 16;
-	constexpr static int DefaultSeed = 0;
-	std::vector<uint8_t> table;
-	int size = DefaultSize;
-
-	NoiseTable() = default;
-
-	void generate(Noise noise, int tableSize = DefaultSize, int gridSize = DefaultSize, Noise::Function function = Noise::Function::Value, Noise::Interpolation interpolation = Noise::Interpolation::Linear, Noise::Fractal fractal = Noise::Fractal::None) {
-		size = tableSize;
-		int stepsPerUnit = tableSize / gridSize;
-		table.resize(size * size);
-		for (int y = 0; y < size; y++) {
-			float v = y / float(stepsPerUnit);
-
-			for (int x = 0; x < size; x++) {
-
-				float u = x / float(stepsPerUnit);
-
-				table[y * size + x] = static_cast<uint8_t>(noise.eval(glm::vec2(u, v)) * 255);
-//				switch (fractal) {
-//					case Noise::Fractal::None:
-//						switch (function) {
-//							case Noise::Function::Value:
-//								table[y * size + x] = static_cast<uint8_t>(Noise::eval(noise.m_seed, glm::vec2(u, v), interpolation) * 255);
-//								break;
-//							case Noise::Function::ValueCubic:
-//								tmp = Noise::evalCubic(noise.m_seed, glm::vec2(u, v));
-//								table[y * size + x] = static_cast<uint8_t>(tmp * 255);
-//								break;
-//							default:
-//								table[y * size + x] = static_cast<uint8_t>(Noise::evalGrid(noise.m_seed, x, y) * 255);
-//								break;
-//						}
-//						break;
-//					case Noise::Fractal::FBM:
-//						tmp = noise.evalFBm(glm::vec2(u, v));
-//						table[y * size + x] = static_cast<uint8_t>(tmp * 255);
-//						continue;
-//					default:
-//						break;
-//				}
-
-
-
-			}
-		}
-	}
-
-	void output(const std::string& fileName = "noise.bmp") {
-
-		// Todo: use unused filename
-		if(stbi_write_bmp(fileName.c_str(), size, size, 1, table.data()) == 0) {
-			std::cerr << "Failed to write noise to file" << std::endl;
-		} else {
-			std::cout << "Wrote noise to file" << std::endl;
-		}
-
-	}
-
-};
+//
+//class NoiseTable {
+//public:
+//	constexpr static int DefaultSize = 16;
+//	constexpr static int DefaultSeed = 0;
+//	std::vector<uint8_t> table;
+//	int size = DefaultSize;
+//
+//	NoiseTable() = default;
+//
+//	void generate(Noise noise,
+//				  int tableSize = DefaultSize,
+//				  int gridSize = DefaultSize,
+//				  Noise::Function function = Noise::Function::Value,
+//				  Noise::Interpolation interpolation = Noise::Interpolation::Linear,
+//				  Noise::Fractal fractal = Noise::Fractal::None) {
+//		size = tableSize;
+//		int stepsPerUnit = tableSize / gridSize;
+//		table.resize(size * size);
+//		for (int y = 0; y < size; y++) {
+//			float v = y / float(stepsPerUnit);
+//
+//			for (int x = 0; x < size; x++) {
+//
+//				float u = x / float(stepsPerUnit);
+//
+//				table[y * size + x] = static_cast<uint8_t>(noise.eval(glm::vec2(u, v)) * 255);
+////				switch (fractal) {
+////					case Noise::Fractal::None:
+////						switch (function) {
+////							case Noise::Function::Value:
+////								table[y * size + x] = static_cast<uint8_t>(Noise::eval(noise.m_seed, glm::vec2(u, v), interpolation) * 255);
+////								break;
+////							case Noise::Function::ValueCubic:
+////								tmp = Noise::evalCubic(noise.m_seed, glm::vec2(u, v));
+////								table[y * size + x] = static_cast<uint8_t>(tmp * 255);
+////								break;
+////							default:
+////								table[y * size + x] = static_cast<uint8_t>(Noise::evalGrid(noise.m_seed, x, y) * 255);
+////								break;
+////						}
+////						break;
+////					case Noise::Fractal::FBM:
+////						tmp = noise.evalFBm(glm::vec2(u, v));
+////						table[y * size + x] = static_cast<uint8_t>(tmp * 255);
+////						continue;
+////					default:
+////						break;
+////				}
+//
+//
+//
+//			}
+//		}
+//	}
+//
+//	void output(const std::string& fileName = "noise.bmp") {
+//
+//		// Todo: use unused filename
+//		if(stbi_write_bmp(fileName.c_str(), size, size, 1, table.data()) == 0) {
+//			std::cerr << "Failed to write noise to file" << std::endl;
+//		} else {
+//			std::cout << "Wrote noise to file" << std::endl;
+//		}
+//
+//	}
+//
+//};
 
 
 ///**

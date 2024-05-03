@@ -29,7 +29,9 @@ class Application;
 class Window {
 public:
 
-	Window(WindowConfig* config, Application* app = nullptr);
+	Window();
+
+	explicit Window(WindowConfig* config, Application* app = nullptr);
 
 	~Window();
 
@@ -72,7 +74,7 @@ public:
 
 	float mouseScrollScaleFactor = 1.0f;
 
-	GLFWwindow* handle;
+	GLFWwindow* handle{};
 
 private:
 

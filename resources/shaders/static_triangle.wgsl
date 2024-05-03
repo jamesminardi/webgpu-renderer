@@ -30,7 +30,6 @@ struct ShaderUniforms {
     viewMatrix: mat4x4f,
     modelMatrix: mat4x4f,
     color: vec4f,
-    time: f32,
 };
 
 // Instead of the simple uTime variable, our uniform variable is a struct

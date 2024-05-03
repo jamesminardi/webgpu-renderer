@@ -3,8 +3,12 @@
 #include "application.h"
 #include "window.h"
 #include "input.h"
+#include "globals.h"
 
 bool Window::glfwInitialized = false;
+
+Window::Window()  = default;
+
 
 Window::Window(WindowConfig* config, Application* app) {
 
@@ -220,8 +224,8 @@ void Window::glfwScrollCallback(GLFWwindow *window, double xOffset, double yOffs
 		bool ctrlKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_CONTROL) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_CONTROL) == GLFW_PRESS);
 		bool shiftKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_SHIFT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_SHIFT) == GLFW_PRESS);
 		bool altKey = bool(glfwGetKey(window, GLFW_KEY_LEFT_ALT) == GLFW_PRESS || glfwGetKey(window, GLFW_KEY_RIGHT_ALT) == GLFW_PRESS);
-		app->onScroll({rescaleMouseScroll(xOffset, app->getWindow().mouseScrollScaleFactor),
-					   rescaleMouseScroll(yOffset, app->getWindow().mouseScrollScaleFactor)},
+		app->onScroll({rescaleMouseScroll(xOffset, Globals::window->mouseScrollScaleFactor),
+					   rescaleMouseScroll(yOffset, Globals::window->mouseScrollScaleFactor)},
 					  {(float)xPos, (float)yPos},  ctrlKey, shiftKey, altKey);
 	}
 }

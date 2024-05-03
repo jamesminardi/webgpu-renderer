@@ -8,7 +8,12 @@ add_executable(app main.cpp
         camera.cpp
         noise/noise.cpp
         terrain_renderer.cpp
-        terrain_renderer.h)
+        terrain_renderer.h
+        globals.h
+        types.h
+        terrain.cpp
+        world.cpp
+        globals.cpp)
 
 
 

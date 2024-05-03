@@ -36,6 +36,7 @@ public:
 	Noise::Descriptor noiseDesc;
 	std::unique_ptr<Terrain> terrain;
 	glm::ivec2 center{};
+	ShaderUniforms m_uniforms{};
 
 
 	Chunk* chunk;

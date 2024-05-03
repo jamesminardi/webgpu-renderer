@@ -9,32 +9,35 @@
 //		bufferDesc.size = sizeof(ShaderUniforms);
 //		bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
 //		bufferDesc.mappedAtCreation = false;
-//
-//		// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
-//
-//		m_uniforms.modelMatrix = world->T1 * world->R1 * world->S;
-//
-//		m_uniforms.viewMatrix = world->camera.updateViewMatrix();
-//
-//		// Projection
-//		world->fov = 2 * glm::atan(1 / world->focalLength);
-//		m_uniforms.projectionMatrix = glm::perspective(world->fov, world->ratio, world->near, world->far);
-//
-//		m_uniforms.time = 1.0f;
-//		m_uniforms.color = {0.5f, 0.6f, 1.0f, 1.0f};
-//
-//		 initRenderPipeline();
-//
+
+		// NOTE: WebPGU IS LEFT HANDED (negative Z is forward), and assume Y-UP
+
+		m_uniforms.modelMatrix = world->T1 * world->R1 * world->S;
+
+		m_uniforms.viewMatrix = world->camera.updateViewMatrix();
+
+		// Projection
+		world->fov = 2 * glm::atan(1 / world->focalLength);
+		m_uniforms.projectionMatrix = glm::perspective(world->fov, world->ratio, world->near, world->far);
+
+		m_uniforms.color = {0.5f, 0.6f, 1.0f, 1.0f};
+		initRenderPipeline();
+
 //		 for (auto& [key, chunk] : world->terrain->chunks) {
 //			 initChunkBuffers(chunk);
 //			 initChunkUniforms(chunk);
 //			 initChunkBindGroup(chunk);
 //			 chunk.mesh.validBuffers = true;
 //		 }
+//		Chunk& chunk = world->terrain->chunks.at(world->terrain->center);
+//		initChunkBuffers(chunk);
+//		initChunkUniforms(chunk);
+//		initChunkBindGroup(chunk);
+
 }
 
 TerrainRenderer::~TerrainRenderer() {
-//	terminateRenderPipeline();
+	terminateRenderPipeline();
 }
 
 
@@ -97,30 +100,30 @@ void TerrainRenderer::update(World& world) {
 
 	// Dont have to touch the unload (they will remove their resources themselves)
 
-	ChunkLoadStateManager& mngr = world.terrain->loadManager;
-
-	for (auto& pos : mngr.chunksToLoad) {
-		Chunk& chunk = world.terrain->chunks.at(pos);
-		initChunkBuffers(chunk);
-		initChunkUniforms(chunk);
-		initChunkBindGroup(chunk);
-		chunk.mesh.validBuffers = true;
-	}
-
-	// Add all chunks in chunkstoload to chunkstorender
-	mngr.chunksToRender.insert(mngr.chunksToLoad.begin(), mngr.chunksToLoad.end());
-	mngr.chunksToLoad.clear();
-	for (auto& [key, chunk] : world.terrain->chunks) {
-		// Update uniforms
-		chunk.mesh.uniforms.modelMatrix = world.T1 * world.R1 * world.S;
-		chunk.mesh.uniforms.viewMatrix = world.camera.updateViewMatrix();
-		chunk.mesh.uniforms.projectionMatrix = glm::perspective(world.fov, world.ratio, world.near, world.far);
-		chunk.mesh.uniforms.time = 1.0f;
-		chunk.mesh.uniforms.color = {0.5f, 0.6f, 1.0f, 1.0f};
-		Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
-
-
-	}
+//	ChunkLoadStateManager& mngr = world.terrain->loadManager;
+//
+//	for (auto& pos : mngr.chunksToLoad) {
+//		Chunk& chunk = world.terrain->chunks.at(pos);
+//		initChunkBuffers(chunk);
+//		initChunkUniforms(chunk);
+//		initChunkBindGroup(chunk);
+//		chunk.mesh.validBuffers = true;
+//	}
+//
+//	// Add all chunks in chunkstoload to chunkstorender
+//	mngr.chunksToRender.insert(mngr.chunksToLoad.begin(), mngr.chunksToLoad.end());
+//	mngr.chunksToLoad.clear();
+//	for (auto& [key, chunk] : world.terrain->chunks) {
+//		// Update uniforms
+//		chunk.mesh.uniforms.modelMatrix = world.T1 * world.R1 * world.S;
+//		chunk.mesh.uniforms.viewMatrix = world.camera.updateViewMatrix();
+//		chunk.mesh.uniforms.projectionMatrix = glm::perspective(world.fov, world.ratio, world.near, world.far);
+//		chunk.mesh.uniforms.time = 1.0f;
+//		chunk.mesh.uniforms.color = {0.5f, 0.6f, 1.0f, 1.0f};
+//		Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
+//
+//
+//	}
 
 }
 
@@ -138,15 +141,20 @@ void TerrainRenderer::render(World& world, wgpu::RenderPassEncoder &renderPass) 
 //		renderPass.setPipeline(m_pipeline);
 //	}
 
-
-
-	for (auto& pos : world.terrain->loadManager.chunksToRender) {
-		Chunk& chunk = world.terrain->chunks.at(pos);
-		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
-		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
-		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
-		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
-	}
+//	for (auto& pos : world.terrain->loadManager.chunksToRender) {
+//		Chunk& chunk = world.terrain->chunks.at(pos);
+//		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
+//		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
+//		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
+//		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+//	}
+	renderPass.setPipeline(m_pipeline);
+//	for (auto& [pos, chunk] : world.terrain->chunks) {
+//		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
+//		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
+//		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
+//		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+//	}
 
 }
 

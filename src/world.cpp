@@ -16,7 +16,7 @@ World::World() :
 
 	terrain = std::make_unique<Terrain>(Terrain(noiseDesc));
 
-	terrainRenderer = std::make_unique<TerrainRenderer>(TerrainRenderer(this));
+//	terrainRenderer = std::make_unique<TerrainRenderer>(TerrainRenderer(this));
 
 	center = Terrain::DefaultCenter;
 
@@ -25,6 +25,17 @@ World::World() :
 	near = 0.01f;
 	far = 1000.0f;
 	divider = 1 / (focalLength * (far - near));
+
+
+	m_uniforms.modelMatrix = T1 * R1 * S;
+
+	m_uniforms.viewMatrix = camera.updateViewMatrix();
+
+	// Projection
+	fov = 2 * glm::atan(1 / focalLength);
+	m_uniforms.projectionMatrix = glm::perspective(fov, ratio, near, far);
+
+	m_uniforms.color = {0.5f, 0.6f, 1.0f, 1.0f};
 
 };
 
@@ -40,10 +51,10 @@ void World::load(Noise::Descriptor noiseDescriptor, int worldSize) {
 //		}
 
 
-	terrainRenderer->initRenderPipeline();
-	terrainRenderer->initChunkBuffers(*chunk);
-	terrainRenderer->initChunkUniforms(*chunk);
-	terrainRenderer->initChunkBindGroup(*chunk);
+	terrain->createRenderPipelines();
+	terrain->initChunkBuffers(*chunk);
+	terrain->initChunkUniforms(*chunk);
+	terrain->initChunkBindGroup(*chunk);
 
 
 }
@@ -72,6 +83,7 @@ void World::unload() {
 
 void World::render(wgpu::RenderPassEncoder& renderPass) {
 
-	terrainRenderer->render(*this, renderPass);
+//	terrainRenderer->render(*this, renderPass);
+	terrain->render(*this, renderPass);
 
 }

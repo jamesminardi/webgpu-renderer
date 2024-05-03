@@ -387,15 +387,24 @@ public:
 	std::map<glm::ivec2, Chunk, decltype(posCmp)> chunks;
 
 
+	glm::ivec2 center{};
 
-
+	Chunk chunk;
 private:
 
 	Noise noise;
 	bool wireFrame{};
 	int chunkSize{};
-	glm::ivec2 center{};
 	int numVisibleChunks{};
+
+	wgpu::ShaderModule m_shaderModule = nullptr;
+	wgpu::BindGroupLayoutDescriptor m_bindGroupLayoutDesc{};
+//    wgpu::BindGroup m_bindGroup = nullptr;
+	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
+	wgpu::RenderPipeline m_pipeline = nullptr;
+	wgpu::RenderPipeline m_wireframePipeline = nullptr;
+	ShaderUniforms m_uniforms{};
+	wgpu::BufferDescriptor bufferDesc{};
 
 
 
@@ -415,7 +424,17 @@ public:
 
 	bool isWireFrame();
 
-	void draw();
+	void createRenderPipelines();
+
+
+	void render(World& world, wgpu::RenderPassEncoder &renderPass);
+
+
+	void initChunkBuffers(Chunk& chunk);
+
+	void initChunkUniforms(Chunk& chunk);
+
+	void initChunkBindGroup(Chunk& chunk);
 
 
 

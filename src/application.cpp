@@ -29,7 +29,7 @@ Application::Application()  {
 //	initUniforms();
 //	initBindGroup();
 	initWorld();
-//	initGui();
+	initGui();
 
 
 //	terrainRenderer = TerrainRenderer();
@@ -38,7 +38,7 @@ Application::Application()  {
 
 Application::~Application() {
 
-//	terminateGui();
+	terminateGui();
 	terminateWorld();
 
 //	terminateBindGroup();
@@ -66,7 +66,7 @@ void Application::terminateWorld() {
 
 void Application::onFrame() {
 
-	world->update();
+//	world->update();
 
 
 	// Do nothing, this checks for ongoing asynchronous operations and call their callbacks
@@ -178,16 +178,10 @@ void Application::onFrame() {
 
 
 	wgpu::RenderPassEncoder renderPass = commandEncoder.beginRenderPass(renderPassDesc);
-	renderPass.setPipeline(world->terrainRenderer->m_pipeline);
 
-//	world->render(renderPass);
-	for (auto& pos : world->terrain->loadManager.chunksToRender) {
-		Chunk& chunk =  world->terrain->chunks.at(pos);
-		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
-		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
-		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
-		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
-	}
+
+	world->render(renderPass);
+
 
 
 	// Select which pipeline to use
@@ -205,7 +199,7 @@ void Application::onFrame() {
 //	renderPass.drawIndexed(world->chunk.mesh.indices.size(), 1, 0, 0, 0);
 
 	// We add the GUI drawing commands to the render pass
-//	updateGui(renderPass);
+	updateGui(renderPass);
 
 	renderPass.end();
 
@@ -776,13 +770,19 @@ void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mo
 void Application::updateViewMatrix() {
 	m_uniforms.viewMatrix = world->camera.updateViewMatrix();
 
-	for (auto& [key, chunk] : world->terrain->chunks) {
-		Application::queue->writeBuffer(
-				chunk.mesh.uniformBuffer,
+	Application::queue->writeBuffer(
+			world->chunk->mesh.uniformBuffer,
 				offsetof(ShaderUniforms, viewMatrix),
-				&chunk.mesh.uniforms.viewMatrix,
+				&world->chunk->mesh.uniforms.viewMatrix,
 				sizeof(ShaderUniforms::viewMatrix)
 		);
-	}
+//	for (auto& [key, chunk] : world->terrain->chunks) {
+//		Application::queue->writeBuffer(
+//				chunk.mesh.uniformBuffer,
+//				offsetof(ShaderUniforms, viewMatrix),
+//				&chunk.mesh.uniforms.viewMatrix,
+//				sizeof(ShaderUniforms::viewMatrix)
+//		);
+//	}
 
 }

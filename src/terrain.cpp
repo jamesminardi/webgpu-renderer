@@ -4,8 +4,8 @@
 #include "shader.h"
 #include "world.h"
 
-Terrain::Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int numVisibleChunks, int chunkSize, bool wireFrame)
-		: center(centerChunkPos), numVisibleChunks(numVisibleChunks), chunkSize(chunkSize), wireFrame(wireFrame) {
+Terrain::Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int numVisibleChunks, int chunkSize, bool wireFrame)
+		: world(world), center(centerChunkPos), numVisibleChunks(numVisibleChunks), chunkSize(chunkSize), wireFrame(wireFrame) {
 
 
 
@@ -14,21 +14,26 @@ Terrain::Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int num
 	noise = Noise(noiseDesc);
 
 
-	loadManager.addPointOfInterest(PointOfInterest{center, numVisibleChunks});
+//	loadManager.addPointOfInterest(PointOfInterest{center, numVisibleChunks});
 
-	chunk = Chunk(noise, center, chunkSize, wireFrame);
-	chunks.insert({center, chunk});
+//	chunk = Chunk(noise, center, chunkSize, wireFrame);
+//	chunks.insert({center, chunk});
 
-	initChunkBuffers(chunk);
-	initChunkUniforms(chunk);
-	initChunkBindGroup(chunk);
+
+
+	loadManager.chunksToLoad.insert(center);
 
 //	 loadManager.updateChunkLists();
 //
-//	 for (auto& pos : loadManager.chunksToLoad) {
-//		 chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
-//		 // Cant add to chunks to render until renderer creates buffers
-//	 }
+	 for (auto& pos : loadManager.chunksToLoad) {
+		chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
+		initChunkBuffers(chunks.at(pos));
+		initChunkUniforms(chunks.at(pos));
+		initChunkBindGroup(chunks.at(pos));
+		chunks.at(pos).mesh.validBuffers = true;
+	}
+
+	loadManager.chunksToLoad.clear();
 
 
 }
@@ -58,15 +63,27 @@ void Terrain::update(glm::ivec2 centerChunkPos) {
 //		}
 //
 //	}
-//
-//	if (regenerate) {
-//		for (auto& [key, chunk] : chunks) {
-//			chunk = Chunk(noise, chunk.worldPos, chunkSize, wireFrame);
-//		}
-//		// Move all chunks in chunksToRender to chunksToLoad
-//		loadManager.chunksToLoad.insert(loadManager.chunksToRender.begin(), loadManager.chunksToRender.end());
-//		regenerate = false;
-//	}
+
+	if (regenerate) {
+
+
+		for (auto& [pos, chunk] : chunks) {
+			loadManager.chunksToLoad.insert(pos);
+		}
+		chunks.clear();
+
+		for (auto& pos : loadManager.chunksToLoad) {
+			chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
+			initChunkBuffers(chunks.at(pos));
+			initChunkUniforms(chunks.at(pos));
+			initChunkBindGroup(chunks.at(pos));
+			chunks.at(pos).mesh.validBuffers = true;
+			// Cant add to chunks to render until renderer creates buffers
+		}
+
+		loadManager.chunksToLoad.clear();
+		regenerate = false;
+	}
 
 
 
@@ -88,12 +105,15 @@ bool Terrain::isWireFrame() {
 	return wireFrame;
 }
 
-void Terrain::render(World& world, wgpu::RenderPassEncoder &renderPass) {
+void Terrain::render(wgpu::RenderPassEncoder &renderPass) {
 	renderPass.setPipeline(m_pipeline);
-	renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
-	renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
-	renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
-	renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+
+	for (auto& [key, chunk] : chunks) {
+		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
+		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
+		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
+		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+	}
 
 }
 
@@ -228,18 +248,23 @@ void Terrain::createRenderPipelines() {
 	std::cout << "Render pipeline: " << m_pipeline << std::endl;
 
 	// wire frame pipelinedesc
-//	wgpu::RenderPipelineDescriptor wireframePipelineDesc = pipelineDesc;
-//	wireframePipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList;
-//	m_wireframePipeline = Application::device->createRenderPipeline(wireframePipelineDesc);
-//	if (!m_wireframePipeline) {
-//		throw std::runtime_error("Could not create swap chain!");
-//	}
-//	std::cout << "Wireframe Render pipeline: " << m_wireframePipeline << std::endl;
+	wgpu::RenderPipelineDescriptor wireframePipelineDesc = pipelineDesc;
+	wireframePipelineDesc.primitive.topology = wgpu::PrimitiveTopology::LineList;
+	m_wireframePipeline = Application::device->createRenderPipeline(wireframePipelineDesc);
+	if (!m_wireframePipeline) {
+		throw std::runtime_error("Could not create swap chain!");
+	}
+	std::cout << "Wireframe Render pipeline: " << m_wireframePipeline << std::endl;
 
 
 }
 
-
+void Terrain::terminateRenderPipeline() {
+	m_pipeline.release();
+	m_wireframePipeline.release();
+	m_shaderModule.release();
+	m_bindGroupLayout.release();
+}
 
 void Terrain::initChunkBuffers(Chunk& chunk) {
 	// Create vertex buffer
@@ -274,7 +299,7 @@ void Terrain::initChunkUniforms(Chunk& chunk) {
 
 	chunk.mesh.uniformBuffer = Application::device->createBuffer(bufferDesc);
 
-	chunk.mesh.uniforms = m_uniforms;
+	chunk.mesh.uniforms = world->m_uniforms;
 
 	Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
 }

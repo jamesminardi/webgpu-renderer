@@ -16,20 +16,20 @@ struct Vertex {
 	glm::vec3 position;
 	glm::vec3 normal;
 	glm::vec3 color;
-	glm::vec2 uv;
+//	glm::vec2 uv;
 };
 
-/*
- * A structure that describes the data layout in the vertex buffer,
- * used by loadGeometryFromObj and used it in `sizeof` and `offsetof`
- * when uploading data to the GPU.
- */
-struct VertexAttributes {
-	glm::vec3 position;
-	glm::vec3 normal;
-	glm::vec3 color;
-	glm::vec2 uv;
-};
+///*
+// * A structure that describes the data layout in the vertex buffer,
+// * used by loadGeometryFromObj and used it in `sizeof` and `offsetof`
+// * when uploading data to the GPU.
+// */
+//struct VertexAttributes {
+//	glm::vec3 position;
+//	glm::vec3 normal;
+//	glm::vec3 color;
+////	glm::vec2 uv;
+//};
 
 /*
  * The same structure as in the shader, replicated in C++

@@ -55,8 +55,6 @@ void Application::initWorld() {
 	noiseDesc = Noise::Descriptor();
 	// updated
 	world = std::make_unique<World>(World());
-	world->load(noiseDesc, 1);
-
 
 }
 
@@ -770,19 +768,20 @@ void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mo
 void Application::updateViewMatrix() {
 	m_uniforms.viewMatrix = world->camera.updateViewMatrix();
 
-	Application::queue->writeBuffer(
-			world->chunk->mesh.uniformBuffer,
-				offsetof(ShaderUniforms, viewMatrix),
-				&world->chunk->mesh.uniforms.viewMatrix,
-				sizeof(ShaderUniforms::viewMatrix)
-		);
-//	for (auto& [key, chunk] : world->terrain->chunks) {
-//		Application::queue->writeBuffer(
-//				chunk.mesh.uniformBuffer,
+//	Application::queue->writeBuffer(
+//			world->chunk->mesh.uniformBuffer,
 //				offsetof(ShaderUniforms, viewMatrix),
-//				&chunk.mesh.uniforms.viewMatrix,
+//				&world->chunk->mesh.uniforms.viewMatrix,
 //				sizeof(ShaderUniforms::viewMatrix)
 //		);
-//	}
+	for (auto& [key, chunk] : world->terrain->chunks) {
+		chunk.mesh.uniforms.viewMatrix = m_uniforms.viewMatrix;
+		Application::queue->writeBuffer(
+				chunk.mesh.uniformBuffer,
+				offsetof(ShaderUniforms, viewMatrix),
+				&chunk.mesh.uniforms.viewMatrix,
+				sizeof(ShaderUniforms::viewMatrix)
+		);
+	}
 
 }

@@ -47,9 +47,6 @@ public:
 
 	World();
 
-	void load(Noise::Descriptor noiseDescriptor, int worldSize = 1);
-
-
 
 	void update();
 

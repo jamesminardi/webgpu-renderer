@@ -389,8 +389,10 @@ public:
 
 	glm::ivec2 center{};
 
-	Chunk chunk;
+//	Chunk chunk;
 private:
+
+	World *world;
 
 	Noise noise;
 	bool wireFrame{};
@@ -403,7 +405,7 @@ private:
 	wgpu::BindGroupLayout m_bindGroupLayout = nullptr;
 	wgpu::RenderPipeline m_pipeline = nullptr;
 	wgpu::RenderPipeline m_wireframePipeline = nullptr;
-	ShaderUniforms m_uniforms{};
+//	ShaderUniforms m_uniforms{};
 	wgpu::BufferDescriptor bufferDesc{};
 
 
@@ -414,7 +416,7 @@ public:
 	Terrain() = default;
 
 
-	explicit Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos = DefaultCenter, int numVisibleChunks = DefaultLoadDistance, int chunkSize = Chunk::DefaultChunkSize, bool wireFrame = false);
+	explicit Terrain(World* world, Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos = DefaultCenter, int numVisibleChunks = DefaultLoadDistance, int chunkSize = Chunk::DefaultChunkSize, bool wireFrame = false);
 
 	// Updates the visible chunks list based on center position
 	void update(glm::ivec2 centerChunkPos);
@@ -425,9 +427,9 @@ public:
 	bool isWireFrame();
 
 	void createRenderPipelines();
+	void terminateRenderPipeline();
 
-
-	void render(World& world, wgpu::RenderPassEncoder &renderPass);
+	void render(wgpu::RenderPassEncoder &renderPass);
 
 
 	void initChunkBuffers(Chunk& chunk);

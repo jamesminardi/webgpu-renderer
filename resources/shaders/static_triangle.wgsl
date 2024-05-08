@@ -47,11 +47,15 @@ fn vs_main(in: VertexInput) -> VertexOutput {
     var lightPos = vec3f(50.0, 30.0, 0.0);
 
     var ambientStrength = 0.3f;
+
     var ambient = ambientStrength * in.color;
+//    var ambient = ambientStrength * in.normal;
 
     var lightDir = normalize(lightPos - in.position.xyz);
     var diff = max(dot(in.normal, lightDir), 0.0);
+
     var diffuse = diff * in.color;
+//    var diffuse = diff * in.normal;
 
     out.color = ambient + diffuse;
 

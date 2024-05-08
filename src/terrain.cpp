@@ -26,12 +26,21 @@ Terrain::Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int num
 }
 
 void Terrain::load() {
-	loadManager.chunksToLoad.insert(center);
-	loadManager.chunksToLoad.insert(center + glm::ivec2(1, 0));
-	loadManager.chunksToLoad.insert(center + glm::ivec2(0, 1));
-	loadManager.chunksToLoad.insert(center + glm::ivec2(1, 1));
+//	loadManager.chunksToLoad.insert(center);
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(1, 0));
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(0, 1));
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(1, 1));
+//
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(-1, 0));
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(0, -1));
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(-1, -1));
+//
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(-1, 1));
+//	loadManager.chunksToLoad.insert(center + glm::ivec2(1, -1));
 
-//	 loadManager.updateChunkLists();
+	loadManager.addPointOfInterest(PointOfInterest(center, 2));
+
+	 loadManager.updateChunkLists();
 //
 	for (auto& pos : loadManager.chunksToLoad) {
 		chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});

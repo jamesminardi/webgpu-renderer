@@ -656,11 +656,11 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 		updateTerrain = true;
 	}
 
-	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.1f, 20.0f)) {
+	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.0f, 500.0f)) {
 		updateTerrain = true;
 	}
 
-	if (ImGui::SliderFloat("Frequency", &noiseDesc.frequency, 0.1f, 5.0f)) {
+	if (ImGui::SliderFloat("Frequency", &noiseDesc.frequency, 0.01f, 0.2f)) {
 		updateTerrain = true;
 	}
 
@@ -761,7 +761,7 @@ void Application::onMouseButton(Input::MouseButton button, Input::Action buttonA
 
 void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mousePos, [[maybe_unused]] bool ctrlKey, [[maybe_unused]] bool shiftKey, [[maybe_unused]] bool altKey) {
 	world->camera.zoom += world->camera.dragState.scrollSensitivity * static_cast<float>(scrollOffset.y);
-	world->camera.zoom = glm::clamp(world->camera.zoom, -5.0f, 2.0f);
+	world->camera.zoom = glm::clamp(world->camera.zoom, -50.0f, 2.0f);
 	updateViewMatrix();
 }
 

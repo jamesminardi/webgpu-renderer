@@ -38,9 +38,12 @@ void Terrain::load() {
 //	loadManager.chunksToLoad.insert(center + glm::ivec2(-1, 1));
 //	loadManager.chunksToLoad.insert(center + glm::ivec2(1, -1));
 
-	loadManager.addPointOfInterest(PointOfInterest(center, 2));
+	loadManager.addPointOfInterest(PointOfInterest(center, 1));
 
-	 loadManager.updateChunkLists();
+	loadManager.addPointOfInterest(PointOfInterest({3, 3}, 1));
+
+
+	loadManager.updateChunkLists();
 //
 	for (auto& pos : loadManager.chunksToLoad) {
 		chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});

@@ -45,7 +45,6 @@ public:
 	static constexpr float DefaultWeightedStrength = 0.0f;
 	static constexpr float DefaultGain = 0.5f;
 	static constexpr int DefaultOctaves = 3;
-	static constexpr bool DefaultWireFrame = false;
 
 	struct Descriptor {
 		Function function = DefaultFunction;
@@ -57,7 +56,6 @@ public:
 		float weightedStrength = DefaultWeightedStrength;
 		float gain = DefaultGain;
 		int octaves = DefaultOctaves;
-//		bool wireFrame = DefaultWireFrame;
 		float amplitude = 1.0f;
 	};
 

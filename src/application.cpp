@@ -656,7 +656,7 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 		updateTerrain = true;
 	}
 
-	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.0f, 500.0f)) {
+	if (ImGui::SliderFloat("Amplitude", &noiseDesc.amplitude, 0.0f, 50.0f)) {
 		updateTerrain = true;
 	}
 
@@ -723,7 +723,28 @@ void Application::onResize([[maybe_unused]] int width, [[maybe_unused]] int heig
 }
 
 void Application::onKey([[maybe_unused]] Input::Key key,[[maybe_unused]] Input::Action buttonAction,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {
-
+	// Move the camera using W A S D
+	if (key == Input::Key::W) {
+		if (buttonAction == Input::Action::Repeat || buttonAction == Input::Action::Press) {
+			world->camera.center += glm::vec3{0.0f, 0.0f, 1.0f};
+		}
+	}
+	if (key == Input::Key::S) {
+		if (buttonAction == Input::Action::Press || buttonAction == Input::Action::Repeat) {
+			world->camera.center += glm::vec3{0.0f, 0.0f, -1.0f};
+		}
+	}
+	if (key == Input::Key::A) {
+		if (buttonAction == Input::Action::Press || buttonAction == Input::Action::Repeat) {
+			world->camera.center += glm::vec3{-1.0f, 0.0f, 0.0f};
+		}
+	}
+	if (key == Input::Key::D) {
+		if (buttonAction == Input::Action::Press || buttonAction == Input::Action::Repeat) {
+			world->camera.center += glm::vec3{1.0f, 0.0f, 0.0f};
+		}
+	}
+	updateViewMatrix();
 }
 
 void Application::onMouseMove([[maybe_unused]] glm::vec2 mousePos,[[maybe_unused]] bool ctrlKey,[[maybe_unused]] bool shiftKey,[[maybe_unused]] bool altKey) {

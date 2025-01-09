@@ -10,14 +10,12 @@ Terrain::Terrain(Noise::Descriptor noiseDesc, glm::ivec2 centerChunkPos, int num
 
 	createRenderPipelines();
 
+
 	noise = Noise(noiseDesc);
-
-
 //	loadManager.addPointOfInterest(PointOfInterest{center, numVisibleChunks});
 
 //	chunk = Chunk(noise, center, chunkSize, wireFrame);
 //	chunks.insert({center, chunk});
-
 
 
 
@@ -38,7 +36,10 @@ void Terrain::load() {
 //	loadManager.chunksToLoad.insert(center + glm::ivec2(-1, 1));
 //	loadManager.chunksToLoad.insert(center + glm::ivec2(1, -1));
 
-	loadManager.addPointOfInterest(PointOfInterest(center, 1));
+	initUniforms();
+	initBindGroup();
+
+//	loadManager.addPointOfInterest(PointOfInterest(center, 1));
 
 	loadManager.addPointOfInterest(PointOfInterest({3, 3}, 1));
 
@@ -46,11 +47,11 @@ void Terrain::load() {
 	loadManager.updateChunkLists();
 //
 	for (auto& pos : loadManager.chunksToLoad) {
-		chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
+		chunks.insert({pos, Chunk(noise, pos, wireFrame)});
 		initChunkBuffers(chunks.at(pos));
-		initChunkUniforms(chunks.at(pos));
-		initChunkBindGroup(chunks.at(pos));
-		chunks.at(pos).mesh.validBuffers = true;
+//		initChunkUniforms(chunks.at(pos));
+//		initChunkBindGroup(chunks.at(pos));
+		chunks.at(pos).mesh.getBuffers().valid = true;
 	}
 
 	loadManager.chunksToLoad.clear();
@@ -58,7 +59,7 @@ void Terrain::load() {
 
 // Updates the visible chunks list based on center position
 void Terrain::update(glm::ivec2 centerChunkPos) {
-
+	writeUniforms();
 	if (centerChunkPos != this->center) {
 
 //		loadManager.removePointOfInterest(PointOfInterest(this->center, numVisibleChunks));
@@ -84,18 +85,17 @@ void Terrain::update(glm::ivec2 centerChunkPos) {
 
 	if (regenerate) {
 
-
 		for (auto& [pos, chunk] : chunks) {
 			loadManager.chunksToLoad.insert(pos);
 		}
 		chunks.clear();
 
 		for (auto& pos : loadManager.chunksToLoad) {
-			chunks.insert({pos, Chunk(noise, pos, chunkSize, wireFrame)});
+			chunks.insert({pos, Chunk(noise, pos, wireFrame)});
 			initChunkBuffers(chunks.at(pos));
-			initChunkUniforms(chunks.at(pos));
-			initChunkBindGroup(chunks.at(pos));
-			chunks.at(pos).mesh.validBuffers = true;
+//			initChunkUniforms(chunks.at(pos));
+//			initChunkBindGroup(chunks.at(pos));
+			chunks.at(pos).mesh.getBuffers().valid = true;
 			// Cant add to chunks to render until renderer creates buffers
 		}
 
@@ -133,10 +133,10 @@ void Terrain::render(wgpu::RenderPassEncoder &renderPass) {
 	}
 
 	for (auto& [key, chunk] : chunks) {
-		renderPass.setVertexBuffer(0, chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.size() * sizeof(Vertex));
-		renderPass.setIndexBuffer(chunk.mesh.indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.indices.size() * sizeof(uint16_t));
-		renderPass.setBindGroup(0, chunk.mesh.bindGroup, 0, nullptr);
-		renderPass.drawIndexed(chunk.mesh.indices.size(), 1, 0, 0, 0);
+		renderPass.setVertexBuffer(0, chunk.mesh.getBuffers().vertexBuffer, 0, chunk.mesh.getVertices().size() * sizeof(Vertex));
+		renderPass.setIndexBuffer(chunk.mesh.getBuffers().indexBuffer, wgpu::IndexFormat::Uint16, 0, chunk.mesh.getTriangles().size() * 3 * sizeof(uint16_t));
+		renderPass.setBindGroup(0, m_bindGroup, 0, nullptr);
+		renderPass.drawIndexed(chunk.mesh.getTriangles().size() * 3, 1, 0, 0, 0);
 	}
 
 }
@@ -301,38 +301,41 @@ void Terrain::initChunkBuffers(Chunk& chunk) {
 	indexBufferDesc.mappedAtCreation = false;
 
 	// Create vertex buffer
-	vertexBufferDesc.size = chunk.mesh.vertices.size() * sizeof(Vertex);
-	chunk.mesh.vertexBuffer = Application::device->createBuffer(vertexBufferDesc);
+	vertexBufferDesc.size = chunk.mesh.getVertices().size() * sizeof(Vertex);
+	chunk.mesh.getBuffers().vertexBuffer = Application::device->createBuffer(vertexBufferDesc);
 	// Upload vertex data to vertex buffer
-	Application::queue->writeBuffer(chunk.mesh.vertexBuffer, 0, chunk.mesh.vertices.data(), vertexBufferDesc.size);
-	std::cout << "Vertex Buffer: " << chunk.mesh.vertexBuffer << std::endl;
+	Application::queue->writeBuffer(chunk.mesh.getBuffers().vertexBuffer, 0, chunk.mesh.getVertices().data(), vertexBufferDesc.size);
+	std::cout << "Vertex Buffer: " << chunk.mesh.getBuffers().vertexBuffer << std::endl;
 
 	// Create index buffer
-	indexBufferDesc.size = chunk.mesh.indices.size() * sizeof(uint16_t);
-	chunk.mesh.indexBuffer = Application::device->createBuffer(indexBufferDesc);
+	indexBufferDesc.size = chunk.mesh.getTriangles().size() * 3 * sizeof(uint16_t);
+	chunk.mesh.getBuffers().indexBuffer = Application::device->createBuffer(indexBufferDesc);
 	// Upload index data to index buffer
-	Application::queue->writeBuffer(chunk.mesh.indexBuffer, 0, chunk.mesh.indices.data(), indexBufferDesc.size);
-	std::cout << "Index Buffer: " << chunk.mesh.indexBuffer << std::endl;
+	Application::queue->writeBuffer(chunk.mesh.getBuffers().indexBuffer, 0, chunk.mesh.getTriangles().data(), indexBufferDesc.size);
+	std::cout << "Index Buffer: " << chunk.mesh.getBuffers().indexBuffer << std::endl;
 }
 
-void Terrain::initChunkUniforms(Chunk& chunk) {
-
+void Terrain::initUniforms() {
 	bufferDesc.size = sizeof(ShaderUniforms);
 	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
 	bufferDesc.mappedAtCreation = false;
 
-	chunk.mesh.uniformBuffer = Application::device->createBuffer(bufferDesc);
+	m_uniformBuffer = Application::device->createBuffer(bufferDesc);
 
-	chunk.mesh.uniforms = uniforms;
-
-	Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
+	writeUniforms();
 }
 
-void Terrain::initChunkBindGroup(Chunk& chunk) {
+// TODO Could avoid rewriting the entire uniform buffer and just the data that changed (i.e. when the viewmatrix changes but nothing else)
+void Terrain::writeUniforms() {
+	Application::queue->writeBuffer(m_uniformBuffer, 0, &uniforms, sizeof(ShaderUniforms));
+}
+
+
+void Terrain::initBindGroup() {
 	// Create a binding
 	wgpu::BindGroupEntry binding{};
 	binding.binding = 0;
-	binding.buffer = chunk.mesh.uniformBuffer;
+	binding.buffer = m_uniformBuffer;
 	binding.offset = 0;
 	binding.size = sizeof(ShaderUniforms);
 
@@ -341,5 +344,34 @@ void Terrain::initChunkBindGroup(Chunk& chunk) {
 	bindGroupDesc.layout = m_bindGroupLayout;
 	bindGroupDesc.entryCount = 1;
 	bindGroupDesc.entries = &binding;
-	chunk.mesh.bindGroup = Application::device->createBindGroup(bindGroupDesc);
+	m_bindGroup = Application::device->createBindGroup(bindGroupDesc);
 }
+
+//void Terrain::initChunkUniforms(Chunk& chunk) {
+//
+//	bufferDesc.size = sizeof(ShaderUniforms);
+//	bufferDesc.usage = wgpu::BufferUsage::CopyDst | wgpu::BufferUsage::Uniform;
+//	bufferDesc.mappedAtCreation = false;
+//
+//	chunk.mesh.uniformBuffer = Application::device->createBuffer(bufferDesc);
+//
+//	chunk.mesh.uniforms = uniforms;
+//
+//	Application::queue->writeBuffer(chunk.mesh.uniformBuffer, 0, &chunk.mesh.uniforms, sizeof(ShaderUniforms));
+//}
+
+//void Terrain::initChunkBindGroup(Chunk& chunk) {
+//	// Create a binding
+//	wgpu::BindGroupEntry binding{};
+//	binding.binding = 0;
+//	binding.buffer = chunk.mesh.uniformBuffer;
+//	binding.offset = 0;
+//	binding.size = sizeof(ShaderUniforms);
+//
+//	// A bind group contains one or multiple bindings
+//	wgpu::BindGroupDescriptor bindGroupDesc;
+//	bindGroupDesc.layout = m_bindGroupLayout;
+//	bindGroupDesc.entryCount = 1;
+//	bindGroupDesc.entries = &binding;
+//	chunk.mesh.bindGroup = Application::device->createBindGroup(bindGroupDesc);
+//}

@@ -80,7 +80,7 @@ public:
 	static const int PrimeZ = 1720413743;
 	static const int PrimeW = 0x27d4eb2d; // 668265261
 
-	static int hashPrimedInt(int seed, int xPrimed, int yPrimed) {
+	static int hashPrimedInt(const int seed, const int xPrimed, const int yPrimed) {
 
 		// Combine seed and primes using XOR.
 		// XOR is reversible, commutative, associative, and mixes bit values well.
@@ -91,7 +91,7 @@ public:
 
 
 	// Get a hashed float in range [0, 1]
-	static float hashPrimedFloat(int seed, int xPrimed, int yPrimed)
+	static float hashPrimedFloat(const int seed, const int xPrimed, const int yPrimed)
 	{
 		int h = hashPrimedInt(seed, xPrimed, yPrimed);
 		// Make positive and scale to [0, 1]
@@ -134,41 +134,41 @@ public:
 	}
 
 	// Given an integer point on a grid, hash the point.
-	static float evalGrid(int seed, glm::ivec2 p) {
+	static float evalGrid(const int seed, const glm::ivec2 p) {
 		return evalGrid(seed, p.x, p.y);
 	}
 
-	static float evalGrid(int seed, int x, int y) {
+	static float evalGrid(const int seed, const int x, const int y) {
 		return hashPrimedFloat(seed, (x ^ PrimeX) * PrimeX, (y ^ PrimeY) * PrimeY);
 	}
 
 
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
-	float eval(glm::vec2 p) {
+	float eval(const glm::vec2 p) const {
 
 		float out = 0.0f;
 
-		p = p * desc.frequency;
+		glm::vec2 q = p * desc.frequency;
 
 		switch(desc.fractal) {
 			case Fractal::None:
 				switch (desc.function) {
 					case Function::Value:
-						out = evalLinear(p);
+						out = evalLinear(q);
 						break;
 					case Function::ValueCubic:
-						out = evalCubic(p);
+						out = evalCubic(q);
 						break;
 					default:
-						out = evalLinear(p);
+						out = evalLinear(q);
 						break;
 				}
 				break;
 			case Fractal::FBM:
-				out = evalFBm(p);
+				out = evalFBm(q);
 				break;
 			default:
-				out = evalLinear(p);
+				out = evalLinear(q);
 				break;
 		}
 
@@ -180,7 +180,7 @@ public:
 private:
 
 
-	float evalLinear(glm::vec2 p) {
+	float evalLinear(const glm::vec2 p) const {
 		int x0 = int(glm::floor(p.x)) * PrimeX;
 		int y0 = int(glm::floor(p.y)) * PrimeY;
 
@@ -214,7 +214,7 @@ private:
 
 
 	// Given a float point, evaluate the value noise using the surrounding 3x3 grid of integer points.
-	float evalCubic(glm::vec2 p) {
+	float evalCubic(const glm::vec2 p) const {
 
 		float xFrac = glm::fract(p.x);
 		float yFrac = glm::fract(p.y);
@@ -269,7 +269,7 @@ private:
 	}
 
 	// Todo: Check correctness compared to old version
-	float evalFBm(glm::vec2 p) {
+	float evalFBm(const glm::vec2 p) const {
 
 		int s = desc.seed;
 

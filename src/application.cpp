@@ -795,14 +795,7 @@ void Application::updateViewMatrix() {
 //				&world->chunk->mesh.uniforms.viewMatrix,
 //				sizeof(ShaderUniforms::viewMatrix)
 //		);
-	for (auto& [key, chunk] : world->terrain->chunks) {
-		chunk.mesh.uniforms.viewMatrix = world->terrain->uniforms.viewMatrix;
-		Application::queue->writeBuffer(
-				chunk.mesh.uniformBuffer,
-				offsetof(ShaderUniforms, viewMatrix),
-				&chunk.mesh.uniforms.viewMatrix,
-				sizeof(ShaderUniforms::viewMatrix)
-		);
-	}
+
+	world->terrain->writeUniforms(); // See comment in write uniforms. Could write just the data that changed instead of entire uniform
 
 }

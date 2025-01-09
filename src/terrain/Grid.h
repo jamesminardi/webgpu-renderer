@@ -3,6 +3,8 @@
 #include <iostream>
 #include <vector>
 #include <array>
+#include <iomanip>
+
 
 /**
  * Grid class that represents a 2D grid of elements of type T
@@ -98,5 +100,51 @@ public:
 	const std::array<T,N*N>& getArray() const {
 		return arr;
 	}
+
+
+	/**
+	 * Generates numbered indices in a grid with negative indices indicating the border.
+	 *
+	 * Ex.
+	 *	 -12 -13 -14 -15  -16
+	 *	 -10   6   7   8  -11
+	 *	  -8   3   4   5  -9
+	 *	  -6   0   1   2  -7
+	 *	  -1  -2  -3  -4  -5
+	 *
+	 * @param  borderWidth 	Width of the border
+	 * @return 				Grid of indices
+	 */
+	static Grid<int, N> generateBorderedGrid(const int borderWidth /*Width of the border*/) {
+		Grid<int, N> grid;
+		int meshIdx = 0;
+		int borderIdx = -1;
+
+		for (int row = 0; row < N; row++) {
+			for (int col = 0; col < N; col++) {
+				bool isBorder = col < borderWidth || col >= N - borderWidth || row < borderWidth || row >= N - borderWidth;
+				if (isBorder) {
+					grid(row, col) = borderIdx;
+					borderIdx--;
+				}
+				else {
+					grid(row, col) = meshIdx;
+					meshIdx++;
+				}
+			}
+		}
+
+		// Print from top to bottom
+//		std::cout << "Bordered Grid:" << std::endl;
+//		for (int row = N-1; row >=0; row--) {
+//			for (int col = 0; col < N; col++) {
+//				std::cout << std::setw(4) << std::right << grid(row, col) << " ";
+//			}
+//			std::cout << std::endl;
+//		}
+
+		return grid;
+	}
+
 
 };

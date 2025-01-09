@@ -30,7 +30,8 @@ World::World() :
 
 	terrain->uniforms.modelMatrix = T1 * R1 * S;
 
-	camera.center = {1 * Chunk::DefaultChunkSize / 2.0f, 0.0f, 1 * Chunk::DefaultChunkSize / 2.0f};
+//	camera.center = {1 * Chunk::DefaultChunkSize / 2.0f, 0.0f, 1 * Chunk::DefaultChunkSize / 2.0f};
+camera.center = {0.0f, 0.0f, 0.0f};
 
 	terrain->uniforms.viewMatrix = camera.updateViewMatrix();
 

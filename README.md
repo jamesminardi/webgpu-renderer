@@ -81,7 +81,7 @@ Execute either `./build/app` (linux/macOS/MinGW) or `build/Debug/app.exe` (MSVC)
 
 Within `Build, Execution, Deployment` -> `Toolchains`, drag `Visual Studio` to the top of the list to make it the default option.
 
-![readme_toolchains.png](data/readme_toolchains.png)
+![readme_toolchains.png](docs/readme_toolchains.png)
 
 
 Next, navigate to `Build, Execution, Deployment` -> `CMake`, selecting your corresponding toolchain and generator. Append to the `CMake options:` field: `-D WEBGPU_BACKEND=${BACKEND}` where `${BACKEND}` is either `WGPU` or `DAWN`.
@@ -89,7 +89,7 @@ Next, navigate to `Build, Execution, Deployment` -> `CMake`, selecting your corr
 > [!TIP]  
 > A second CMake profile may be created to build to both platforms.
 
-![readme_cmake.png](data/readme_cmake.png)
+![readme_cmake.png](docs/readme_cmake.png)
 
 Reload your CMake project.
 

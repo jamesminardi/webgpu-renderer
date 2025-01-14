@@ -3,11 +3,10 @@
 #include "types.h"
 #include "camera.h"
 #include "noise/noise.h"
-#include "terrain_renderer.h"
 
 class Terrain;
 class Chunk;
-//class TerrainRenderer;
+class TerrainRenderer;
 
 class World {
 public:
@@ -35,6 +34,7 @@ public:
 //	std::unique_ptr<TerrainRenderer> terrainRenderer;
 	Noise::Descriptor noiseDesc;
 	std::unique_ptr<Terrain> terrain;
+	std::unique_ptr<TerrainRenderer> terrainRenderer;
 	glm::ivec2 center{};
 
 

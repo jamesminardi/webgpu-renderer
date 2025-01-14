@@ -15,7 +15,6 @@
 
 
 class World;
-//class TerrainRenderer;
 
 
 class Application {
@@ -64,6 +63,7 @@ private:
 	void initWorld();
 	void terminateWorld();
 
+
 	void initWindowAndDevice();
 	void terminateWindowAndDevice();
 
@@ -90,7 +90,7 @@ private:
 
 	void initGui(); // called in onInit
 	void terminateGui(); // called in onFinish
-	void updateGui(wgpu::RenderPassEncoder renderPass); // called in onFrame
+	void updateGui(wgpu::RenderPassEncoder& renderPass); // called in onFrame
 
 
 	void updateViewMatrix();
@@ -124,10 +124,9 @@ private:
 //	wgpu::Device m_device = nullptr;
 //	wgpu::Queue m_queue = nullptr;
 
-	// Keep the error callback alive
+	// Keep the error callbacks alive
 	std::unique_ptr<wgpu::ErrorCallback> m_errorCallbackHandle;
 	std::unique_ptr<wgpu::QueueWorkDoneCallback> m_queueWorkDoneCallbackHandle;
-
 #ifdef WEBGPU_BACKEND_DAWN
 	std::unique_ptr<wgpu::DeviceLostCallback>  m_deviceLostCallbackHandle;
 #endif

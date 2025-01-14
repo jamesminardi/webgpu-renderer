@@ -7,7 +7,8 @@
 #include <backends/imgui_impl_wgpu.h>
 #include <backends/imgui_impl_glfw.h>
 #include "world.h"
-#include "terrain.h"
+#include "terrain/Terrain.h"
+#include "terrain/TerrainRenderer.h"
 #include "memory"
 
 std::unique_ptr<wgpu::Device> Application::device = nullptr;
@@ -18,8 +19,6 @@ wgpu::TextureFormat Application::depthTextureFormat = wgpu::TextureFormat::Depth
 
 
 Application::Application()  {
-
-
 	initWindowAndDevice();
 	initSwapChain();
 	initDepthBuffer();
@@ -183,7 +182,7 @@ void Application::onFrame() {
 
 
 	// Select which pipeline to use
-//	renderPass.setPipeline(m_pipeline);
+//	renderPass.setPipeline(world->terrainRenderer->m_pipeline);
 //
 //    renderPass.setVertexBuffer(0, m_vertexBuffer, 0, world->chunk.mesh.vertices.size() * sizeof(Vertex));
 //
@@ -223,11 +222,18 @@ bool Application::isRunning() {
 
 void Application::initWindowAndDevice() {
 
-	m_instance = createInstance(wgpu::InstanceDescriptor{});
+	WGPUInstanceDescriptor wgpuDesc{};
+
+	m_instance = wgpu::createInstance(wgpuDesc);
+
 	if (!m_instance) {
 		throw std::runtime_error("Could not initialize WebGPU!");
 	}
 
+	std::cout << "WGPU instance: " << m_instance << std::endl;
+
+	// Create Window
+	// ---------------------------------------------------
 	WindowConfig windowConfig{};
 	windowConfig.title = "WebGPU App" " (" + m_platformStr + ")";
 	windowConfig.width = 640;
@@ -271,32 +277,32 @@ void Application::initWindowAndDevice() {
 
 	// Set required limits for the device.
 	wgpu::RequiredLimits requiredLimits = wgpu::Default; // Don't forget to set to default first!
-	requiredLimits.limits.maxVertexAttributes = 3; // Imgui uses 3
-	requiredLimits.limits.maxVertexBuffers = 8;
-	// Maximum size of a buffer is 6 vertices of 2 float each
-	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
-	// Maximum stride between 2 consecutive vertices in the vertex buffer
-	requiredLimits.limits.maxVertexBufferArrayStride = sizeof(Vertex); // Needs to be 5 for imgui
-
-	// Must be set even if we do not use storage or uniform buffers for now
-	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
-	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
-	requiredLimits.limits.maxInterStageShaderComponents = 6; // 6 used by imgui, 3 by us
-	requiredLimits.limits.maxBindGroups = 4; // Required to be at least 2 for ImGui
-
-	requiredLimits.limits.maxUniformBuffersPerShaderStage = 1;
-	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
-
-
-	// Allow textures up to 2K
-	requiredLimits.limits.maxTextureDimension1D = 2048;
-	requiredLimits.limits.maxTextureDimension2D = 2048;
-	requiredLimits.limits.maxTextureArrayLayers = 1;
-	requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
-	requiredLimits.limits.maxSamplersPerShaderStage = 1;
-
-
-
+	requiredLimits.limits = supportedLimits.limits;
+//	requiredLimits.limits.maxVertexAttributes = 3; // Imgui uses 3
+//	requiredLimits.limits.maxVertexBuffers = 8;
+//	// Maximum size of a buffer is 6 vertices of 2 float each
+//	requiredLimits.limits.maxBufferSize = 150000 * sizeof(float);
+//	// Maximum stride between 2 consecutive vertices in the vertex buffer
+//	requiredLimits.limits.maxVertexBufferArrayStride = sizeof(Vertex); // Needs to be 5 for imgui
+//
+//	// Must be set even if we do not use storage or uniform buffers for now
+//	requiredLimits.limits.minStorageBufferOffsetAlignment = supportedLimits.limits.minStorageBufferOffsetAlignment;
+//	requiredLimits.limits.minUniformBufferOffsetAlignment = supportedLimits.limits.minUniformBufferOffsetAlignment;
+//	requiredLimits.limits.maxInterStageShaderComponents = 6; // 6 used by imgui, 3 by us
+//	requiredLimits.limits.maxBindGroups = supportedLimits.limits.maxBindGroups; // Required to be at least 2 for ImGui
+//	requiredLimits.limits.maxBindingsPerBindGroup = supportedLimits.limits.maxBindingsPerBindGroup;
+//	requiredLimits.limits.maxUniformBufferBindingSize = supportedLimits.limits.maxUniformBufferBindingSize;
+//
+//	requiredLimits.limits.maxUniformBuffersPerShaderStage = 2;
+//	requiredLimits.limits.maxUniformBufferBindingSize = 16 * 4 * sizeof(float);
+//
+//
+//	// Allow textures up to 2K
+//	requiredLimits.limits.maxTextureDimension1D = 2048;
+//	requiredLimits.limits.maxTextureDimension2D = 2048;
+//	requiredLimits.limits.maxTextureArrayLayers = 1;
+//	requiredLimits.limits.maxSampledTexturesPerShaderStage = 1;
+//	requiredLimits.limits.maxSamplersPerShaderStage = 1;
 
 
 	wgpu::DeviceDescriptor deviceDesc{};
@@ -304,6 +310,11 @@ void Application::initWindowAndDevice() {
 	deviceDesc.label = "James Device";
 	deviceDesc.requiredFeaturesCount = 0; // Do not require any specific feature
 	deviceDesc.requiredLimits = &requiredLimits;
+	deviceDesc.deviceLostCallback = [](WGPUDeviceLostReason reason, char const* message, void* /* pUserData */) {
+			std::cout << "Device lost: reason " << reason;
+			if (message) std::cout << " (" << message << ")";
+			std::cout << std::endl;
+		};
 	deviceDesc.defaultQueue.label = "Default Queue";
 
 	Application::device = std::make_unique<wgpu::Device>(adapter.requestDevice(deviceDesc));
@@ -319,6 +330,13 @@ void Application::initWindowAndDevice() {
 	Application::device->getLimits(&supportedLimits);
 	std::cout << "device.maxVertexAttributes: " << supportedLimits.limits.maxVertexAttributes << std::endl;
 
+	// Error callback for more debug info
+	m_errorCallbackHandle = Application::device->setUncapturedErrorCallback([](wgpu::ErrorType type, char const* message) {
+		std::cerr << "Device error: type " << type;
+		if (message) std::cerr << " (message: " << message << ")";
+		std::cerr << std::endl;
+	});
+	std::cout << "Error callback handle: " << m_errorCallbackHandle << std::endl;
 
 	// Set swapChain format by querying the surface
 	// ---------------------------------------------------
@@ -332,20 +350,14 @@ void Application::initWindowAndDevice() {
 	adapter.release();
 
 
-	// Error callback for more debug info
-	m_errorCallbackHandle = Application::device->setUncapturedErrorCallback([](wgpu::ErrorType type, char const* message) {
-		std::cerr << "Device error: type " << type;
-		if (message) std::cerr << " (message: " << message << ")";
-		std::cerr << std::endl;
-	});
 
-#ifdef WEBGPU_BACKEND_DAWN
-	m_deviceLostCallbackHandle = Application::device->setDeviceLostCallback([](wgpu::DeviceLostReason type, char const* message) {
-		std::cerr << "Device lost: reason " << type;
-		if (message) std::cerr << " (message: " << message << ")";
-		std::cerr << std::endl;
-	});
-#endif
+//#ifdef WEBGPU_BACKEND_DAWN
+//	m_deviceLostCallbackHandle = Application::device->setDeviceLostCallback([](wgpu::DeviceLostReason type, char const* message) {
+//		std::cerr << "Device lost: reason " << type;
+//		if (message) std::cerr << " (message: " << message << ")";
+//		std::cerr << std::endl;
+//	});
+//#endif
 
 	// Get Queue
 	// ---------------------------------------------------
@@ -583,7 +595,7 @@ void Application::terminateGui() {
 
 
 
-void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
+void Application::updateGui(wgpu::RenderPassEncoder& renderPass) {
 	// Start ImGui frame
 	ImGui_ImplWGPU_NewFrame();
 	ImGui_ImplGlfw_NewFrame();
@@ -680,13 +692,13 @@ void Application::updateGui(wgpu::RenderPassEncoder renderPass) {
 		updateTerrain = true;
 	}
 
-	bool wireFrame = world->terrain->isWireFrame();
+	bool wireFrame = world->terrainRenderer->isWireFrame();
 	if (ImGui::Checkbox("WireFrame", &wireFrame)) {            // Edit bools storing our window open/close state
-		world->terrain->setWireFrame(wireFrame);
+		world->terrainRenderer->setWireFrame(wireFrame);
 	}
 
     if (updateTerrain) {
-        world->terrain->setNoise(noiseDesc);
+//        world->terrain->setNoise(noiseDesc); // TODO regeneration
     }
 
 
@@ -787,7 +799,10 @@ void Application::onScroll(glm::vec2 scrollOffset, [[maybe_unused]] glm::vec2 mo
 }
 
 void Application::updateViewMatrix() {
-	world->terrain->uniforms.viewMatrix = world->camera.updateViewMatrix();
+
+	ShaderUniforms uniforms = world->terrainRenderer->getUniforms();
+
+	uniforms.viewMatrix = world->camera.updateViewMatrix();
 
 //	Application::queue->writeBuffer(
 //			world->chunk->mesh.uniformBuffer,
@@ -796,6 +811,6 @@ void Application::updateViewMatrix() {
 //				sizeof(ShaderUniforms::viewMatrix)
 //		);
 
-	world->terrain->writeUniforms(); // See comment in write uniforms. Could write just the data that changed instead of entire uniform
+	world->terrainRenderer->setUniforms(uniforms); // See comment in write uniforms. Could write just the data that changed instead of entire uniform
 
 }
